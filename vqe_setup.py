@@ -45,7 +45,7 @@ def init_state(m, init_gauge=[]):
 
 L = (2,2)
 J = (1.0, 1.0, 1.0)
-H = (0.1, 0.1, 0.1)
+H = (0, 0, 0)
 lattice_type = 'honeycomb_open'
 # lattice_type = 'honeycomb_torus'
 # lattice_type = 'eight_spins_4_8_8'
@@ -92,8 +92,8 @@ optimizer = SPSA(maxiter=300)
 simulator = QasmSimulator()
 QI = QuantumInstance(backend=simulator, shots=2000)
 
-# active_qubits = [*range(m_u)]
-active_qubits = [*range(m)]
+active_qubits = [*range(m_u)]
+# active_qubits = [*range(m)]
 
 # ansatz = GSU(num_qubits=m, active_qubits=[*range(m_u)],det=1, steps=1)
 ansatz = GBSU(num_qubits=m, active_qubits=active_qubits, det=det, steps=1)
