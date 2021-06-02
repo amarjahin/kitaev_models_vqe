@@ -40,11 +40,11 @@ def init_state(m, init_gauge=[]):
 L = (2,2)
 J = (1.0, 1.0, 1.0)
 H = (0, 0, 0)
-lattice_type = 'honeycomb_open'
+# lattice_type = 'honeycomb_open'
 # lattice_type = 'honeycomb_torus'
 # lattice_type = 'eight_spins_4_8_8'
 # lattice_type = 'square_octagon_torus'
-# lattice_type = 'square_octagon_open'
+lattice_type = 'square_octagon_open'
 
 
 FH = KitaevModel(L=L, J=J, H=H, lattice_type=lattice_type)

@@ -337,48 +337,102 @@ class KitaevModel(Graph):
 
         h = {}
         for e in self.edges: 
-            if e[0] % 2 == 0: 
-                i = e[0]
-                j = e[1]
-            else: 
-                i = e[1]
-                j = e[0]
-
+            # if e[0] % 2 == 0: 
+            #     i = e[0]
+            #     j = e[1]
+            # else: 
+            #     i = e[1]
+            #     j = e[0]
+            i, j = self.edge_direction(e)
             ip = i//2
             jp = j//2 
 
             mag = self.edges[e]['weight'] * u[i,j]
             term = ['I' for _ in range(self.number_of_Dfermions_u)]
             if ip == jp: 
-                # h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
                 term[ip] = 'Z'
-                h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
-            elif ip>jp: 
-                term[ip] = 'X'
-                term[jp] = 'X'
-                for k in range(min(ip,jp)+1, max(ip,jp)):
-                    term[k] = 'Z'
-                h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
+                mag = -1*mag
+                # h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
+            elif ip>jp:
+                # if i % 2 == 0 and j % 2 == 1:  
+                #     term[ip] = 'X'
+                #     term[jp] = 'X'
+                # elif i % 2 == 0 and j % 2 == 0:  
+                #     term[ip] = 'X'
+                #     term[jp] = 'Y'
+                #     mag = -1*mag
+                # elif i % 2 == 1 and j % 2 == 1:  
+                #     term[ip] = 'Y'
+                #     term[jp] = 'X'
+                # elif i % 2 == 1 and j % 2 == 0:  
+                #     term[ip] = 'Y'
+                #     term[jp] = 'Y'
+                #     mag = -1*mag
+
+                if i % 2 == 0:  
+                    term[ip] = 'X'
+                else: 
+                    term[ip] = 'Y'
+                if j % 2 == 0: 
+                    term[jp] = 'Y'
+                    mag = -1*mag
+                else: 
+                    term[jp] = 'X'
+
+
+                # for k in range(min(ip,jp)+1, max(ip,jp)):
+                # for k in range(jp + 1, ip):
+                #     term[k] = 'Z'
+                # h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
             else: 
-                term[ip] = 'Y'
-                term[jp] = 'Y'
-                for k in range(min(ip,jp)+1, max(ip,jp)):
-                    term[k] = 'Z'
-                h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
-                
+                mag = -1*mag 
+                # if i % 2 == 0 and j % 2 == 1: 
+                #     term[ip] = 'Y'
+                #     term[jp] = 'Y'
+                # elif i % 2 == 0 and j % 2 == 0:  
+                #     term[ip] = 'Y'
+                #     term[jp] = 'X'
+                # elif i % 2 == 1 and j % 2 == 1:  
+                #     term[ip] = 'X'
+                #     term[jp] = 'Y'
+                #     mag = -1*mag
+                # elif i % 2 == 1 and j % 2 == 0:  
+                #     term[ip] = 'X'
+                #     term[jp] = 'X'
+                #     mag = -1*mag
+                # # for k in range(min(ip,jp)+1, max(ip,jp)):
+                # for k in range(ip + 1, jp):
+                #     term[k] = 'Z'
+                # h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
+                if j % 2 == 0:  
+                    term[jp] = 'X'
+                else: 
+                    term[jp] = 'Y'
+                if i % 2 == 0: 
+                    term[ip] = 'Y'
+                    mag = -1*mag
+                else: 
+                    term[ip] = 'X'
+
+
+
+            for k in range(min(ip,jp)+1, max(ip,jp)):
+                term[k] = 'Z'
+            h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
+            
         return h
 
 
     def jw_hamiltonian(self):
         h = {}
         for e in self.edges: 
-            if e[0] % 2 == 0: 
-                i = e[0]
-                j = e[1]
-            else: 
-                i = e[1]
-                j = e[0]
-
+            # if e[0] % 2 == 0: 
+            #     i = e[0]
+            #     j = e[1]
+            # else: 
+            #     i = e[1]
+            #     j = e[0]
+            i, j = self.edge_direction(e)
             ip = i//2
             jp = j//2 
 
@@ -393,14 +447,16 @@ class KitaevModel(Graph):
             elif ip>jp: 
                 term[ip] = 'X'
                 term[jp] = 'X'
-                for k in range(min(ip,jp)+1, max(ip,jp)):
+                # for k in range(min(ip,jp)+1, max(ip,jp)):
+                for k in range(jp + 1, ip):
                     term[k] = 'Z'
                 term[edges_indx] = 'Z'
                 h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
             else: 
                 term[ip] = 'Y'
                 term[jp] = 'Y'
-                for k in range(min(ip,jp)+1, max(ip,jp)):
+                # for k in range(min(ip,jp)+1, max(ip,jp)):
+                for k in range(jp + 1, ip):
                     term[k] = 'Z'
                 term[edges_indx] = 'Z'
                 h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
