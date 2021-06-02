@@ -31,11 +31,13 @@ class KitaevModel(Graph):
         self.lattice_type = lattice_type
         self.number_of_unit_cells = self.Lx*self.Ly
         lattice_to_func = {'honeycomb_torus':self.honeycomb_torus, 'honeycomb_open':self.honeycomb_open,
-                            'eight_spins_4_8_8':self.eight_spins_4_8_8}
+                            'eight_spins_4_8_8':self.eight_spins_4_8_8, 'square_octagon_torus':self.square_octagon_torus, 
+                            'square_octagon_open':self.square_octagon_open}
         # define_lattice = lattice_to_func.get(lattice_type)
         define_lattice = lattice_to_func[lattice_type]
-        define_lattice(L,J) 
-
+        define_lattice() 
+        self.number_of_Dfermions = self.number_of_spins*2
+        self.number_of_Dfermions_u = self.number_of_spins//2
         # add external magnetic field terms to the spin Hamiltonian if they exist 
         if self.magnetic_field != (0,0,0): 
             for i in range(self.number_of_spins): 
@@ -84,10 +86,10 @@ class KitaevModel(Graph):
         return dict(c)
 
 
-    def honeycomb_torus(self, L, J): 
+    def honeycomb_torus(self): 
         self.number_of_spins = self.number_of_unit_cells*2
-        self.number_of_Dfermions = self.number_of_spins*2
-        self.number_of_Dfermions_u = self.number_of_spins//2
+        # self.number_of_Dfermions = self.number_of_spins*2
+        # self.number_of_Dfermions_u = self.number_of_spins//2
         self.spin_hamiltonian = {}
         self.fermionic_hamiltonian = {}
         for j in range(self.Ly): 
@@ -117,11 +119,12 @@ class KitaevModel(Graph):
                                             term=''.join(term_x[::-1]), mag=-1*self.jx)
                 self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
                                             term=''.join(term_y[::-1]), mag=-1*self.jy)
+        return None
 
-    def honeycomb_open(self, L, J): 
+    def honeycomb_open(self): 
         self.number_of_spins = self.number_of_unit_cells*2
-        self.number_of_Dfermions = self.number_of_spins*2
-        self.number_of_Dfermions_u = self.number_of_spins//2
+        # self.number_of_Dfermions = self.number_of_spins*2
+        # self.number_of_Dfermions_u = self.number_of_spins//2
         self.spin_hamiltonian = {}
         # self.fermionic_hamiltonian = {}
         for j in range(self.Ly): 
@@ -163,23 +166,23 @@ class KitaevModel(Graph):
                                                 term=''.join(term_y[::-1]), mag=-1*self.jy)
                 else: 
                     self.add_edges_from([(ULN_node_a_inx, node_b_indx, {'weight':0, 'label':'Y'})])
+        return None
 
-
-    def eight_spins_4_8_8(self, L, J): 
+    def eight_spins_4_8_8(self): 
         self.number_of_spins = 8
-        self.number_of_Dfermions = 16
-        self.number_of_Dfermions_u = 4
+        # self.number_of_Dfermions = 16
+        # self.number_of_Dfermions_u = 4
         self.spin_hamiltonian = {}
         self.fermionic_hamiltonian = {}
-        self.add_edges_from([(0, 1, {'weight':self.jz, 'label':'Z'})])
-        self.add_edges_from([(2, 3, {'weight':self.jz, 'label':'Z'})])
-        self.add_edges_from([(4, 5, {'weight':self.jz, 'label':'Z'})])
-        self.add_edges_from([(6, 7, {'weight':self.jz, 'label':'Z'})])
+        self.add_edges_from([(6, 0, {'weight':self.jz, 'label':'Z'})])
+        self.add_edges_from([(2, 4, {'weight':self.jz, 'label':'Z'})])
+        self.add_edges_from([(1, 5, {'weight':self.jz, 'label':'Z'})])
+        self.add_edges_from([(3, 7, {'weight':self.jz, 'label':'Z'})])
 
-        self.add_edges_from([(2, 1, {'weight':self.jx, 'label':'X'})])
-        self.add_edges_from([(6, 5, {'weight':self.jx, 'label':'X'})])
-        self.add_edges_from([(2, 5, {'weight':self.jy, 'label':'Y'})])
-        self.add_edges_from([(6, 1, {'weight':self.jy, 'label':'Y'})])
+        self.add_edges_from([(0, 1, {'weight':self.jx, 'label':'X'})])
+        self.add_edges_from([(2, 3, {'weight':self.jx, 'label':'X'})])
+        self.add_edges_from([(0, 3, {'weight':self.jy, 'label':'Y'})])
+        self.add_edges_from([(2, 1, {'weight':self.jy, 'label':'Y'})])
 
         for e in self.edges: 
             term = ['I' for _ in range(self.number_of_spins)]
@@ -188,17 +191,119 @@ class KitaevModel(Graph):
             self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
                                             term=''.join(term[::-1]), mag=-1*mag)
                 
+        return None 
 
-
-    
-    def four_eight_eight_torus(self): 
-        self.number_of_spins = self.number_of_unit_cells*2
-        self.number_of_Dfermions = self.number_of_spins*2
-        self.number_of_Dfermions_u = self.number_of_spins//2
+    def square_octagon_torus(self): 
+        self.number_of_spins = self.number_of_unit_cells*4
         self.spin_hamiltonian = {}
-        None
+        for j in range(self.Ly): 
+            for i in range(self.Lx):
+                # create edges of the graph
+                cell_indx = self.unit_cell_indx(i, j)
+                node_0, node_1 = 4*cell_indx, + 4*cell_indx + 1
+                node_2, node_3 = 4*cell_indx + 2, + 4*cell_indx + 3
+                self.add_edges_from([(node_3, node_0, {'weight':self.jx, 'label':'X'}),
+                                     (node_1, node_2, {'weight':self.jx, 'label':'X'}), 
+                                     (node_0, node_1, {'weight':self.jy, 'label':'Y'}), 
+                                     (node_2, node_3, {'weight':self.jy, 'label':'Y'})])
+                
+                right_cell_indx = self.unit_cell_indx(i + 1, j)
+                right_node = 4*right_cell_indx + 1 
+                self.add_edges_from([(right_node, node_3, {'weight':self.jz, 'label':'Z'})])
+
+                above_cell_indx = self.unit_cell_indx(i, j+1)
+                above_node = 4*above_cell_indx 
+                self.add_edges_from([(node_2, above_node, {'weight':self.jz, 'label':'Z'})])
+
+                term_1 = ['I' for _ in range(self.number_of_spins)]
+                term_2 = ['I' for _ in range(self.number_of_spins)]
+                term_3 = ['I' for _ in range(self.number_of_spins)]
+                term_4 = ['I' for _ in range(self.number_of_spins)]
+                term_5 = ['I' for _ in range(self.number_of_spins)]
+                term_6 = ['I' for _ in range(self.number_of_spins)]
+                
+                term_1[node_3], term_1[node_0] = 'X', 'X'
+                term_2[node_1], term_2[node_2] = 'X', 'X'
+                term_3[node_0], term_3[node_1] = 'Y', 'Y'
+                term_4[node_2], term_4[node_3] = 'Y', 'Y'
+                term_5[right_node], term_5[node_3] = 'Z', 'Z'
+                term_6[above_node], term_6[node_2] = 'Z', 'Z'
+
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_1[::-1]), mag=-1*self.jx)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_2[::-1]), mag=-1*self.jx)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_3[::-1]), mag=-1*self.jy)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_4[::-1]), mag=-1*self.jy)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_5[::-1]), mag=-1*self.jz)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_6[::-1]), mag=-1*self.jz)
+
+        return None
 
 
+    def square_octagon_open(self): 
+        self.number_of_spins = self.number_of_unit_cells*4
+        self.spin_hamiltonian = {}
+        for j in range(self.Ly): 
+            for i in range(self.Lx):
+                # create edges of the graph
+                cell_indx = self.unit_cell_indx(i, j)
+                node_0, node_1 = 4*cell_indx, + 4*cell_indx + 1
+                node_2, node_3 = 4*cell_indx + 2, + 4*cell_indx + 3
+                self.add_edges_from([(node_3, node_0, {'weight':self.jx, 'label':'X'}),
+                                     (node_1, node_2, {'weight':self.jx, 'label':'X'}), 
+                                     (node_0, node_1, {'weight':self.jy, 'label':'Y'}), 
+                                     (node_2, node_3, {'weight':self.jy, 'label':'Y'})])
+                
+                right_cell_indx = self.unit_cell_indx(i + 1, j)
+                right_node = 4*right_cell_indx + 1
+                if (i+1) % self.Lx !=0:
+                    self.add_edges_from([(right_node, node_3, {'weight':self.jz, 'label':'Z'})])
+                    term_5 = ['I' for _ in range(self.number_of_spins)]
+                    term_5[right_node], term_5[node_3] = 'Z', 'Z'
+                    self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_5[::-1]), mag=-1*self.jz)
+                else: 
+                    self.add_edges_from([(right_node, node_3, {'weight':0, 'label':'Z'})])
+
+                above_cell_indx = self.unit_cell_indx(i, j+1)
+                above_node = 4*above_cell_indx 
+                if (j+1) % self.Ly !=0:
+                    term_6 = ['I' for _ in range(self.number_of_spins)]
+                    term_6[above_node], term_6[node_2] = 'Z', 'Z'
+                    self.add_edges_from([(node_2, above_node, {'weight':self.jz, 'label':'Z'})])
+                    self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_6[::-1]), mag=-1*self.jz)
+                else:
+                    self.add_edges_from([(node_2, above_node, {'weight':0, 'label':'Z'})])
+
+
+                term_1 = ['I' for _ in range(self.number_of_spins)]
+                term_2 = ['I' for _ in range(self.number_of_spins)]
+                term_3 = ['I' for _ in range(self.number_of_spins)]
+                term_4 = ['I' for _ in range(self.number_of_spins)]
+                
+                term_1[node_3], term_1[node_0] = 'X', 'X'
+                term_2[node_1], term_2[node_2] = 'X', 'X'
+                term_3[node_0], term_3[node_1] = 'Y', 'Y'
+                term_4[node_2], term_4[node_3] = 'Y', 'Y'
+
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_1[::-1]), mag=-1*self.jx)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_2[::-1]), mag=-1*self.jx)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_3[::-1]), mag=-1*self.jy)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_4[::-1]), mag=-1*self.jy)
+                
+                
+
+        return None
 
     def jw_hamiltonian_u(self, u):
         """Get the Hamiltonian of the system with a fixed gauge transformed using Jordan-Wigner 
@@ -246,7 +351,6 @@ class KitaevModel(Graph):
 
     def jw_hamiltonian(self):
         h = {}
-        # edge_dict = {'X':1, 'Y':2, 'Z':3}
         for e in self.edges: 
             if e[0] % 2 == 0: 
                 i = e[0]

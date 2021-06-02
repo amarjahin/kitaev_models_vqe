@@ -14,6 +14,48 @@ from kitaev_models import KitaevModel
 from qiskit_conversion import convert_to_qiskit_PauliSumOp
 from ansatz import GSU,GBSU, mix_gauges
 
+
+def edge_direction_honeycomb(e): 
+    if e[0] % 2 == 0: 
+        i = e[0]
+        j = e[1]
+    else: 
+        i = e[1]
+        j = e[0]
+
+    return i, j
+
+
+def edge_direction_square_octagon(e): 
+    if e[0] % 2 == 0 and e[1] % 2 == 1: 
+        i = e[0]
+        j = e[1]
+    elif e[0] % 2 == 1 and e[1] % 2 == 0: 
+        i = e[1]
+        j = e[0]
+    else: 
+        r0, r1 =  e[0] % 4, e[1] % 4
+        if r0 > r1:  
+            i = e[0]
+            j = e[1]
+        else: 
+            i = e[1]
+            j = e[0]
+
+    return i, j
+
+
+def change_gauge(edges, u): 
+    for e in edges: 
+        i = e[0]
+        j = e[1]
+        u[i,j] = -u[i,j]
+        u[j,i] = -u[j,i]
+
+    return u
+
+
+
 def get_gauge(KM):
     """Get the standard gauge. u[i,j] = +1 for i even and j odd and connected by an edge, and zero otherwise. 
        The matrix u is antisymmetric, u[i,j] = -u[j,i].
@@ -24,14 +66,11 @@ def get_gauge(KM):
         ndarray: array of the standard gauge
     """
     u = zeros((KM.number_of_spins, KM.number_of_spins))
+    edge_direction_dict = {'honeycomb_torus':edge_direction_honeycomb, 'honeycomb_open':edge_direction_honeycomb,
+                            'eight_spins_4_8_8':edge_direction_square_octagon, 'square_octagon_torus':edge_direction_square_octagon, 
+                            'square_octagon_open':edge_direction_square_octagon}
     for e in KM.edges: 
-        if e[0] % 2 == 0: 
-            i = e[0]
-            j = e[1]
-        else: 
-            i = e[1]
-            j = e[0]
-
+        i, j = edge_direction_dict[KM.lattice_type](e)
         u[i, j] = KM.edges[e]['weight']
         u[j, i] = -KM.edges[e]['weight']
 
@@ -46,9 +85,12 @@ def init_state(m, init_gauge=[]):
 L = (2,2)
 J = (1.0, 1.0, 1.0)
 H = (0, 0, 0)
-lattice_type = 'honeycomb_open'
+# lattice_type = 'honeycomb_open'
 # lattice_type = 'honeycomb_torus'
 # lattice_type = 'eight_spins_4_8_8'
+# lattice_type = 'square_octagon_torus'
+lattice_type = 'square_octagon_open'
+
 
 FH = KitaevModel(L=L, J=J, H=H, lattice_type=lattice_type)
 spin_hamiltonian = convert_to_qiskit_PauliSumOp(FH.spin_hamiltonian)
@@ -57,40 +99,41 @@ spin_result = mes.compute_minimum_eigenvalue(spin_hamiltonian)
 
 # objects in tilde L_u
 u = get_gauge(KM=FH)
+edges = [(3, 0), (5, 6), (12, 13), (8, 11)]
+u = change_gauge(edges=edges, u=u)
 h_u = FH.jw_hamiltonian_u(u=u)
 qubit_op_u = convert_to_qiskit_PauliSumOp(h_u)
-# result_u = mes.compute_minimum_eigenvalue(qubit_op_u)
+result_u = mes.compute_minimum_eigenvalue(qubit_op_u)
 
 # objects in tilde L 
-
 h = FH.jw_hamiltonian()
 qubit_op = convert_to_qiskit_PauliSumOp(h)
-result = mes.compute_minimum_eigenvalue(qubit_op)
+# result = mes.compute_minimum_eigenvalue(qubit_op)
 
 
 
 print(f'number of spins: {FH.number_of_spins}')
 print(f"{'energy per unit cell from spin Hamiltonian using numpy:':<60}{spin_result.eigenvalue.real/FH.number_of_unit_cells:>10f}")
-print(f"{'energy per unit cell from qubit_op using numpy:':<60}{result.eigenvalue.real/FH.number_of_unit_cells:>10f}")
+print(f"{'energy per unit cell from qubit_op using numpy:':<60}{result_u.eigenvalue.real/FH.number_of_unit_cells:>10f}")
 
 #######################################################################
 m_u = FH.number_of_Dfermions_u
-det = 1
+det = -1
 
-# h_qubit_op = qubit_op_u
-# m = m_u
-# init_gauge = []
-# optimizer = COBYLA(maxiter=1500) 
-# simulator = StatevectorSimulator()
-# QI = QuantumInstance(backend=simulator)
+h_qubit_op = qubit_op_u
+m = m_u
+init_gauge = []
+optimizer = COBYLA(maxiter=3000, tol=0.0001) 
+simulator = StatevectorSimulator()
+QI = QuantumInstance(backend=simulator)
 
-h_qubit_op = qubit_op
-m = FH.number_of_Dfermions
-init_gauge = [*range(m_u, m)]
+# h_qubit_op = qubit_op
+# m = FH.number_of_Dfermions
+# init_gauge = [*range(m_u, m)]
 # optimizer = COBYLA(maxiter=300, tol=0.000000000001) 
-optimizer = SPSA(maxiter=300)
-simulator = QasmSimulator()
-QI = QuantumInstance(backend=simulator, shots=2000)
+# # optimizer = SPSA(maxiter=300)
+# simulator = QasmSimulator()
+# QI = QuantumInstance(backend=simulator, shots=2000)
 
 active_qubits = [*range(m_u)]
 # active_qubits = [*range(m)]
