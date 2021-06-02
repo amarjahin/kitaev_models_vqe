@@ -8,7 +8,6 @@ from qiskit.utils import QuantumInstance
 from qiskit.providers.aer import QasmSimulator, StatevectorSimulator
 from qiskit.algorithms.optimizers import COBYLA, SPSA
 from qiskit.algorithms import VQE, NumPyMinimumEigensolver
-from qiskit.opflow import CVaRExpectation, PauliExpectation
 # setup for defining the system, and the Hamiltonian
 from kitaev_models import KitaevModel
 from qiskit_conversion import convert_to_qiskit_PauliSumOp
@@ -41,11 +40,11 @@ def init_state(m, init_gauge=[]):
 L = (2,2)
 J = (1.0, 1.0, 1.0)
 H = (0, 0, 0)
-# lattice_type = 'honeycomb_open'
+lattice_type = 'honeycomb_open'
 # lattice_type = 'honeycomb_torus'
 # lattice_type = 'eight_spins_4_8_8'
 # lattice_type = 'square_octagon_torus'
-lattice_type = 'square_octagon_open'
+# lattice_type = 'square_octagon_open'
 
 
 FH = KitaevModel(L=L, J=J, H=H, lattice_type=lattice_type)
@@ -84,7 +83,7 @@ QI = QuantumInstance(backend=simulator)
 # h_qubit_op = qubit_op
 # m = FH.number_of_Dfermions
 # init_gauge = [*range(m_u, m)]
-# # optimizer = SPSA(maxiter=300)
+# optimizer = SPSA(maxiter=300)
 # simulator = QasmSimulator()
 # QI = QuantumInstance(backend=simulator, shots=2000)
 
