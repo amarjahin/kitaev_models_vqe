@@ -27,32 +27,15 @@ def edge_direction_honeycomb(e):
 
 
 def edge_direction_square_octagon(e): 
-    if e[0] % 2 == 0 and e[1] % 2 == 1: 
+    r0, r1 =  e[0] % 4, e[1] % 4
+    if r0 > r1:  
         i = e[0]
         j = e[1]
-    elif e[0] % 2 == 1 and e[1] % 2 == 0: 
+    else: 
         i = e[1]
         j = e[0]
-    else: 
-        r0, r1 =  e[0] % 4, e[1] % 4
-        if r0 > r1:  
-            i = e[0]
-            j = e[1]
-        else: 
-            i = e[1]
-            j = e[0]
 
     return i, j
-
-
-def change_gauge(edges, u): 
-    for e in edges: 
-        i = e[0]
-        j = e[1]
-        u[i,j] = -u[i,j]
-        u[j,i] = -u[j,i]
-
-    return u
 
 
 
@@ -99,8 +82,6 @@ spin_result = mes.compute_minimum_eigenvalue(spin_hamiltonian)
 
 # objects in tilde L_u
 u = get_gauge(KM=FH)
-edges = [(3, 0), (5, 6), (12, 13), (8, 11)]
-u = change_gauge(edges=edges, u=u)
 h_u = FH.jw_hamiltonian_u(u=u)
 qubit_op_u = convert_to_qiskit_PauliSumOp(h_u)
 result_u = mes.compute_minimum_eigenvalue(qubit_op_u)
