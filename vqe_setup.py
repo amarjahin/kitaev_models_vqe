@@ -15,30 +15,6 @@ from qiskit_conversion import convert_to_qiskit_PauliSumOp
 from ansatz import GSU,GBSU, mix_gauges
 
 
-def edge_direction_honeycomb(e): 
-    if e[0] % 2 == 0: 
-        i = e[0]
-        j = e[1]
-    else: 
-        i = e[1]
-        j = e[0]
-
-    return i, j
-
-
-def edge_direction_square_octagon(e): 
-    r0, r1 =  e[0] % 4, e[1] % 4
-    if r0 > r1:  
-        i = e[0]
-        j = e[1]
-    else: 
-        i = e[1]
-        j = e[0]
-
-    return i, j
-
-
-
 def get_gauge(KM):
     """Get the standard gauge. u[i,j] = +1 for i even and j odd and connected by an edge, and zero otherwise. 
        The matrix u is antisymmetric, u[i,j] = -u[j,i].
@@ -49,11 +25,8 @@ def get_gauge(KM):
         ndarray: array of the standard gauge
     """
     u = zeros((KM.number_of_spins, KM.number_of_spins))
-    edge_direction_dict = {'honeycomb_torus':edge_direction_honeycomb, 'honeycomb_open':edge_direction_honeycomb,
-                            'eight_spins_4_8_8':edge_direction_square_octagon, 'square_octagon_torus':edge_direction_square_octagon, 
-                            'square_octagon_open':edge_direction_square_octagon}
     for e in KM.edges: 
-        i, j = edge_direction_dict[KM.lattice_type](e)
+        i, j = KM.edge_direction(e)
         u[i, j] = KM.edges[e]['weight']
         u[j, i] = -KM.edges[e]['weight']
 
@@ -99,7 +72,7 @@ print(f"{'energy per unit cell from qubit_op using numpy:':<60}{result_u.eigenva
 
 #######################################################################
 m_u = FH.number_of_Dfermions_u
-det = -1
+det = 1
 
 h_qubit_op = qubit_op_u
 m = m_u
@@ -111,7 +84,6 @@ QI = QuantumInstance(backend=simulator)
 # h_qubit_op = qubit_op
 # m = FH.number_of_Dfermions
 # init_gauge = [*range(m_u, m)]
-# optimizer = COBYLA(maxiter=300, tol=0.000000000001) 
 # # optimizer = SPSA(maxiter=300)
 # simulator = QasmSimulator()
 # QI = QuantumInstance(backend=simulator, shots=2000)
