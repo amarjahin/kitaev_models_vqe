@@ -33,7 +33,11 @@ class KitaevModel(Graph):
         lattice_to_func = {'honeycomb_torus':self.honeycomb_torus, 'honeycomb_open':self.honeycomb_open,
                             'eight_spins_4_8_8':self.eight_spins_4_8_8, 'square_octagon_torus':self.square_octagon_torus, 
                             'square_octagon_open':self.square_octagon_open}
-        # define_lattice = lattice_to_func.get(lattice_type)
+        edge_direction_dict = {'honeycomb_torus':self.edge_direction_honeycomb, 'honeycomb_open':self.edge_direction_honeycomb,
+                            'eight_spins_4_8_8':self.edge_direction_square_octagon,
+                            'square_octagon_torus':self.edge_direction_square_octagon,
+                            'square_octagon_open':self.edge_direction_square_octagon}
+        self.edge_direction = edge_direction_dict[self.lattice_type]
         define_lattice = lattice_to_func[lattice_type]
         define_lattice() 
         self.number_of_Dfermions = self.number_of_spins*2
@@ -86,12 +90,32 @@ class KitaevModel(Graph):
         return dict(c)
 
 
+    def edge_direction_honeycomb(self,e): 
+        if e[0] % 2 == 0: 
+            i = e[0]
+            j = e[1]
+        else: 
+            i = e[1]
+            j = e[0]
+
+        return i, j
+
+    def edge_direction_square_octagon(self,e): 
+        r0, r1 =  e[0] % 4, e[1] % 4
+        if r0 > r1:  
+            i = e[0]
+            j = e[1]
+        else: 
+            i = e[1]
+            j = e[0]
+
+        return i, j
+
+
     def honeycomb_torus(self): 
         self.number_of_spins = self.number_of_unit_cells*2
-        # self.number_of_Dfermions = self.number_of_spins*2
-        # self.number_of_Dfermions_u = self.number_of_spins//2
         self.spin_hamiltonian = {}
-        self.fermionic_hamiltonian = {}
+        # self.fermionic_hamiltonian = {}
         for j in range(self.Ly): 
             for i in range(self.Lx): 
                 # create edges of the graph
@@ -123,8 +147,6 @@ class KitaevModel(Graph):
 
     def honeycomb_open(self): 
         self.number_of_spins = self.number_of_unit_cells*2
-        # self.number_of_Dfermions = self.number_of_spins*2
-        # self.number_of_Dfermions_u = self.number_of_spins//2
         self.spin_hamiltonian = {}
         # self.fermionic_hamiltonian = {}
         for j in range(self.Ly): 
@@ -170,8 +192,6 @@ class KitaevModel(Graph):
 
     def eight_spins_4_8_8(self): 
         self.number_of_spins = 8
-        # self.number_of_Dfermions = 16
-        # self.number_of_Dfermions_u = 4
         self.spin_hamiltonian = {}
         self.fermionic_hamiltonian = {}
         self.add_edges_from([(6, 0, {'weight':self.jz, 'label':'Z'})])
