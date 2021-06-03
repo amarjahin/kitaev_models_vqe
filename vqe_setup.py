@@ -1,13 +1,13 @@
 import os
 os.environ['MPMATH_NOSAGE'] = 'true'
 
-from numpy import zeros, pi
+from numpy import zeros, pi, conjugate 
 # setup for qiskit, VQE and the classical optimizer for it
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, transpile
 from qiskit.utils import QuantumInstance
 from qiskit.providers.aer import QasmSimulator, StatevectorSimulator
 from qiskit.algorithms.optimizers import COBYLA, SPSA
-from qiskit.algorithms import VQE, NumPyMinimumEigensolver
+from qiskit.algorithms import VQE, NumPyMinimumEigensolver, NumPyEigensolver
 # setup for defining the system, and the Hamiltonian
 from kitaev_models import KitaevModel
 from qiskit_conversion import convert_to_qiskit_PauliSumOp
@@ -37,37 +37,41 @@ def init_state(m, init_gauge=[]):
         qc.x(init_gauge)
     return qc
 
-L = (2,2)
+L = (3,3)
 J = (1.0, 1.0, 1.0)
 H = (0, 0, 0)
-# lattice_type = 'honeycomb_open'
+lattice_type = 'honeycomb_open'
 # lattice_type = 'honeycomb_torus'
 # lattice_type = 'eight_spins_4_8_8'
 # lattice_type = 'square_octagon_torus'
-lattice_type = 'square_octagon_open'
+# lattice_type = 'square_octagon_open'
 
 
 FH = KitaevModel(L=L, J=J, H=H, lattice_type=lattice_type)
 spin_hamiltonian = convert_to_qiskit_PauliSumOp(FH.spin_hamiltonian)
 mes = NumPyMinimumEigensolver()
-spin_result = mes.compute_minimum_eigenvalue(spin_hamiltonian)
+es = NumPyEigensolver(k=2)
+# spin_result = mes.compute_minimum_eigenvalue(spin_hamiltonian)
 
 # objects in tilde L_u
 u = get_gauge(KM=FH)
 h_u = FH.jw_hamiltonian_u(u=u)
 qubit_op_u = convert_to_qiskit_PauliSumOp(h_u)
-result_u = mes.compute_minimum_eigenvalue(qubit_op_u)
-
+# result_u = mes.compute_minimum_eigenvalue(qubit_op_u)
+result_u = es.compute_eigenvalues(qubit_op_u)
+exact_eigenstate = result_u._eigenstates[0].to_matrix(massive=True)
 # objects in tilde L 
 h = FH.jw_hamiltonian()
 qubit_op = convert_to_qiskit_PauliSumOp(h)
 # result = mes.compute_minimum_eigenvalue(qubit_op)
 
 
-
+print(f'lattice type: {lattice_type}')
 print(f'number of spins: {FH.number_of_spins}')
-print(f"{'energy per unit cell from spin Hamiltonian using numpy:':<60}{spin_result.eigenvalue.real/FH.number_of_unit_cells:>10f}")
-print(f"{'energy per unit cell from qubit_op using numpy:':<60}{result_u.eigenvalue.real/FH.number_of_unit_cells:>10f}")
+# print(f"{'energy per unit cell from spin Hamiltonian using numpy:':<60}{spin_result.eigenvalue.real/FH.number_of_unit_cells:>10f}")
+print(f"{'energy per unit cell from qubit_op using numpy:':<60}{result_u.eigenvalues[0].real/FH.number_of_unit_cells:>10f}")
+print(f"{'first excited state energy per unit cell:':<60}{result_u.eigenvalues[1].real/FH.number_of_unit_cells:>10f}")
+
 
 #######################################################################
 m_u = FH.number_of_Dfermions_u
@@ -76,7 +80,7 @@ det = 1
 h_qubit_op = qubit_op_u
 m = m_u
 init_gauge = []
-optimizer = COBYLA(maxiter=3000, tol=0.0001) 
+optimizer = COBYLA(maxiter=2000, tol=0.0001) 
 simulator = StatevectorSimulator()
 QI = QuantumInstance(backend=simulator)
 
@@ -112,3 +116,8 @@ energy = vqe_result.eigenvalue.real
 
 print(f"{'energy per unit cell using VQE:':<60}{energy/FH.number_of_unit_cells:>10f}")
 print(f'number of iterations done: {algorithm._eval_count}')
+
+optimal_state = algorithm.get_optimal_vector()
+overlap = abs(conjugate(optimal_state.T) @ exact_eigenstate)
+
+print(f'|<exact|optimal>| = {overlap}')
