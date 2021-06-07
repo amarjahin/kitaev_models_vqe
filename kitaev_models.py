@@ -1,4 +1,5 @@
 from networkx import Graph
+from numpy import zeros
 from collections import Counter
 
 class KitaevModel(Graph): 
@@ -33,11 +34,11 @@ class KitaevModel(Graph):
         lattice_to_func = {'honeycomb_torus':self.honeycomb_torus, 'honeycomb_open':self.honeycomb_open,
                             'eight_spins_4_8_8':self.eight_spins_4_8_8, 'square_octagon_torus':self.square_octagon_torus, 
                             'square_octagon_open':self.square_octagon_open}
-        edge_direction_dict = {'honeycomb_torus':self.edge_direction_honeycomb, 'honeycomb_open':self.edge_direction_honeycomb,
-                            'eight_spins_4_8_8':self.edge_direction_square_octagon,
-                            'square_octagon_torus':self.edge_direction_square_octagon,
-                            'square_octagon_open':self.edge_direction_square_octagon}
-        self.edge_direction = edge_direction_dict[self.lattice_type]
+        # edge_direction_dict = {'honeycomb_torus':self.edge_direction_honeycomb, 'honeycomb_open':self.edge_direction_honeycomb,
+        #                     'eight_spins_4_8_8':self.edge_direction_square_octagon,
+        #                     'square_octagon_torus':self.edge_direction_square_octagon,
+        #                     'square_octagon_open':self.edge_direction_square_octagon}
+        # self.edge_direction = edge_direction_dict[self.lattice_type]
         define_lattice = lattice_to_func[lattice_type]
         define_lattice() 
         self.number_of_Dfermions = self.number_of_spins*2
@@ -100,9 +101,17 @@ class KitaevModel(Graph):
 
         return i, j
 
+    def site_qubit_label_honeycomb(self, i): 
+        return i//2
+
+    def edge_qubit_label_honeycomb(self,e): 
+        i = self.edge_direction_honeycomb(e)[0]
+        ip = self.site_qubit_label_honeycomb(i)
+        return 3*(ip) + self.edge_dict[self.edges[e]['label']] + self.number_of_Dfermions_u - 1
+
     def edge_direction_square_octagon(self,e): 
         r0, r1 =  e[0] % 4, e[1] % 4
-        if r0 > r1:  
+        if r0 < r1:  
             i = e[0]
             j = e[1]
         else: 
@@ -112,7 +121,33 @@ class KitaevModel(Graph):
         return i, j
 
 
+    def site_qubit_label_square_octagon(self, i): 
+        return i//2
+
+    def edge_qubit_label_square_octagon(self,e): 
+        i,j = self.edge_direction_square_octagon(e)
+        ip = self.site_qubit_label_square_octagon(i)
+        if self.edges[e]['label'] == 'X': 
+            return 6*(ip//2) + 2*(i % 4) + self.edge_dict['X'] + self.number_of_Dfermions_u -1
+        if self.edges[e]['label'] == 'Y': 
+            return 6*(ip//2) + 2*(ip % 2) + self.edge_dict['Y'] + self.number_of_Dfermions_u -1
+        if self.edges[e]['label'] == 'Z': 
+            if i//4 == j//4: # this is to take care of the cases where the boundary condition tie the unit cell with itsself
+                return 6*(ip//2) + (j % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
+            else: 
+                return 6*(ip//2) + (i % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
+
+            # if self.Lx != 1 and self.Ly != 1: 
+            #     return 6*(ip//2) + (i % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
+            # elif self.Lx == 1 and self.Ly == 1: 
+            #     return 6*(ip//2) + (j % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
+            # elif self.Lx != 1 and self.Ly == 1:
+            #     if (i%4) =    
+
     def honeycomb_torus(self): 
+        self.edge_direction = self.edge_direction_honeycomb
+        self.site_qubit_label = self.site_qubit_label_honeycomb
+        self.edge_qubit_label = self.edge_qubit_label_honeycomb
         self.number_of_spins = self.number_of_unit_cells*2
         self.spin_hamiltonian = {}
         # self.fermionic_hamiltonian = {}
@@ -146,6 +181,9 @@ class KitaevModel(Graph):
         return None
 
     def honeycomb_open(self): 
+        self.edge_direction = self.edge_direction_honeycomb
+        self.site_qubit_label = self.site_qubit_label_honeycomb
+        self.edge_qubit_label = self.edge_qubit_label_honeycomb
         self.number_of_spins = self.number_of_unit_cells*2
         self.spin_hamiltonian = {}
         # self.fermionic_hamiltonian = {}
@@ -174,7 +212,7 @@ class KitaevModel(Graph):
                     term_x[URN_node_a_inx], term_x[node_b_indx] = 'X', 'X'
                     self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
                                                 term=''.join(term_x[::-1]), mag=-1*self.jx)
-                else: 
+                elif i != 0: 
                     self.add_edges_from([(URN_node_a_inx, node_b_indx, {'weight':0, 'label':'X'})])
 
                 ULN_cell_indx = self.unit_cell_indx(i, j + 1)
@@ -186,11 +224,14 @@ class KitaevModel(Graph):
                     term_y[ULN_node_a_inx], term_y[node_b_indx] = 'Y', 'Y'
                     self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
                                                 term=''.join(term_y[::-1]), mag=-1*self.jy)
-                else: 
+                elif j != 0: 
                     self.add_edges_from([(ULN_node_a_inx, node_b_indx, {'weight':0, 'label':'Y'})])
         return None
 
     def eight_spins_4_8_8(self): 
+        self.edge_direction = self.edge_direction_square_octagon
+        self.site_qubit_label = self.site_qubit_label_square_octagon
+        self.edge_qubit_label = self.edge_qubit_label_square_octagon
         self.number_of_spins = 8
         self.spin_hamiltonian = {}
         self.fermionic_hamiltonian = {}
@@ -214,6 +255,9 @@ class KitaevModel(Graph):
         return None 
 
     def square_octagon_torus(self): 
+        self.edge_direction = self.edge_direction_square_octagon
+        self.site_qubit_label = self.site_qubit_label_square_octagon
+        self.edge_qubit_label = self.edge_qubit_label_square_octagon
         self.number_of_spins = self.number_of_unit_cells*4
         self.spin_hamiltonian = {}
         for j in range(self.Ly): 
@@ -266,6 +310,9 @@ class KitaevModel(Graph):
 
 
     def square_octagon_open(self): 
+        self.edge_direction = self.edge_direction_square_octagon
+        self.site_qubit_label = self.site_qubit_label_square_octagon
+        self.edge_qubit_label = self.edge_qubit_label_square_octagon
         self.number_of_spins = self.number_of_unit_cells*4
         self.spin_hamiltonian = {}
         for j in range(self.Ly): 
@@ -321,9 +368,24 @@ class KitaevModel(Graph):
                 self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
                                             term=''.join(term_4[::-1]), mag=-1*self.jy)
                 
-                
-
         return None
+
+    def std_gauge(self):
+        """Get the standard gauge. u[i,j] = +1 for i even and j odd and connected by an edge, and zero otherwise. 
+        The matrix u is antisymmetric, u[i,j] = -u[j,i].
+        Args:
+            KM (KitaevModel): An instance of the KitaevModel class 
+
+        Returns:
+            ndarray: array of the standard gauge
+        """
+        u = zeros((self.number_of_spins, self.number_of_spins))
+        for e in self.edges: 
+            i, j = self.edge_direction(e)
+            u[i, j] = self.edges[e]['weight']
+            u[j, i] = -self.edges[e]['weight']
+
+        return u 
 
     def jw_hamiltonian_u(self, u):
         """Get the Hamiltonian of the system with a fixed gauge transformed using Jordan-Wigner 
@@ -337,23 +399,19 @@ class KitaevModel(Graph):
 
         h = {}
         for e in self.edges: 
-            # if e[0] % 2 == 0: 
-            #     i = e[0]
-            #     j = e[1]
-            # else: 
-            #     i = e[1]
-            #     j = e[0]
+            # the direction of the edge is important to know whether we have 
+            # c_i c_j for c_j c_i in the Hamiltonian, they are not the same. 
             i, j = self.edge_direction(e)
-            ip = i//2
-            jp = j//2 
-
+            # ip = i//2
+            # jp = j//2 
+            ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
             mag = self.edges[e]['weight'] * u[i,j]
             term = ['I' for _ in range(self.number_of_Dfermions_u)]
             if ip == jp: 
                 term[ip] = 'Z'
                 mag = -1*mag
-                # h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
             elif ip>jp:
+                # for the 4-8-8 model it's not always true that i is even and j is odd. 
                 if i % 2 == 0:  
                     term[ip] = 'X'
                 else: 
@@ -385,39 +443,25 @@ class KitaevModel(Graph):
     def jw_hamiltonian(self):
         h = {}
         for e in self.edges: 
+            # the direction of the edge is important to know whether we have 
+            # u_{ij} c_i c_j for u_{ij} c_j c_i in the Hamiltonian, they are not the same. 
+            # also note here that u_{ij} is an operator 
             i, j = self.edge_direction(e)
-            ip = i//2
-            jp = j//2 
-
-            edges_indx = 3*(ip + 1) + self.edge_dict[self.edges[e]['label']]
+            # ip = i//2
+            # jp = j//2 
+            ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
+            # edges_indx = 3*(ip + 1) + self.edge_dict[self.edges[e]['label']]
+            edge_indx = self.edge_qubit_label(e)
+            # print(self.edges[e]['label'])
+            # print(edge_indx)
 
             mag = self.edges[e]['weight'] 
             term = ['I' for _ in range(self.number_of_Dfermions)]
-            # if ip == jp: 
-            #     term[ip] = 'Z'
-            #     term[edges_indx] = 'Z'
-            #     h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
-            # elif ip>jp: 
-            #     term[ip] = 'X'
-            #     term[jp] = 'X'
-            #     # for k in range(min(ip,jp)+1, max(ip,jp)):
-            #     for k in range(jp + 1, ip):
-            #         term[k] = 'Z'
-            #     term[edges_indx] = 'Z'
-            #     h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
-            # else: 
-            #     term[ip] = 'Y'
-            #     term[jp] = 'Y'
-            #     # for k in range(min(ip,jp)+1, max(ip,jp)):
-            #     for k in range(jp + 1, ip):
-            #         term[k] = 'Z'
-            #     term[edges_indx] = 'Z'
-            #     h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
             if ip == jp: 
                 term[ip] = 'Z'
                 mag = -1*mag
-                # h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=-1*mag)
             elif ip>jp:
+                # this case deals with 
                 if i % 2 == 0:  
                     term[ip] = 'X'
                 else: 
@@ -441,23 +485,41 @@ class KitaevModel(Graph):
 
             for k in range(min(ip,jp)+1, max(ip,jp)):
                 term[k] = 'Z'
+            
+            # add the u_{ij} part
+            term[edge_indx] = 'Z'
             h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
+
             # add magnetic field terms if they exist  
             if self.magnetic_field != (0,0,0): 
                 term_1 = ['I' for _ in range(self.number_of_Dfermions)]
                 term_2 = ['I' for _ in range(self.number_of_Dfermions)]
-                term_1[ip] = 'Y'
-                term_1[edges_indx] = 'X'
-                for k in range(min(ip,edges_indx)+1, max(ip,edges_indx)):
-                    term_1[k] = 'Z'
-                mag = self.magnetic_field[self.edge_dict[self.edges[e]['label']] - 1]
-                h = self.add_term_to_hamiltonian(h=h, term=''.join(term_1[::-1]), mag=-1*mag)
+                mag = -1*self.magnetic_field[self.edge_dict[self.edges[e]['label']] - 1]
+                term_1[edge_indx] = 'X'
+                if i % 2 == 0 :
+                    term_1[ip] = 'Y'
+                    mag = -mag
+                else: 
+                    term_1[ip] = 'X'
+                    # mag = -mag
 
-                term_2[jp] = 'X'
-                term_2[edges_indx] = 'Y'
-                for k in range(min(jp,edges_indx)+1, max(jp,edges_indx)):
+
+                for k in range(min(ip,edge_indx)+1, max(ip,edge_indx)):
+                    term_1[k] = 'Z'
+                h = self.add_term_to_hamiltonian(h=h, term=''.join(term_1[::-1]), mag=mag)
+
+                mag = -1*self.magnetic_field[self.edge_dict[self.edges[e]['label']] - 1]
+                term_2[edge_indx] = 'Y'
+                if j % 2 == 0: 
+                    term_2[jp] = 'Y'
+                    # mag = -mag
+                else: 
+                    term_2[jp] = 'X'
+                    mag = -mag
+
+
+                for k in range(min(jp,edge_indx)+1, max(jp,edge_indx)):
                     term_2[k] = 'Z'
                 h = self.add_term_to_hamiltonian(h=h, term=''.join(term_2[::-1]), mag=mag)
                 
-        
         return h
