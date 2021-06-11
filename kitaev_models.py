@@ -402,16 +402,20 @@ class KitaevModel(Graph):
             # the direction of the edge is important to know whether we have 
             # c_i c_j for c_j c_i in the Hamiltonian, they are not the same. 
             i, j = self.edge_direction(e)
-            # ip = i//2
-            # jp = j//2 
             ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
             mag = self.edges[e]['weight'] * u[i,j]
             term = ['I' for _ in range(self.number_of_Dfermions_u)]
             if ip == jp: 
                 term[ip] = 'Z'
                 mag = -1*mag
+            # The way I define things is such that for the 'c_i' fermions, even i  
+            # will correspons to a X operator where as an odd j corresponds to a Y operator. 
+            # However it does matter whether or not ip > jp. (the label of the qubit). 
+            # This is because of the tail of Z's in the JW transformation, which can turn an X 
+            # to Y or Y to an X if the tail of Z's of the other operator hit them. 
             elif ip>jp:
                 # for the 4-8-8 model it's not always true that i is even and j is odd. 
+                # It could be that both are even or both are odd. 
                 if i % 2 == 0:  
                     term[ip] = 'X'
                 else: 
@@ -447,21 +451,21 @@ class KitaevModel(Graph):
             # u_{ij} c_i c_j for u_{ij} c_j c_i in the Hamiltonian, they are not the same. 
             # also note here that u_{ij} is an operator 
             i, j = self.edge_direction(e)
-            # ip = i//2
-            # jp = j//2 
             ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
-            # edges_indx = 3*(ip + 1) + self.edge_dict[self.edges[e]['label']]
             edge_indx = self.edge_qubit_label(e)
-            # print(self.edges[e]['label'])
-            # print(edge_indx)
-
-            mag = self.edges[e]['weight'] 
+            mag = -1*self.edges[e]['weight'] # need to check this sign though
             term = ['I' for _ in range(self.number_of_Dfermions)]
             if ip == jp: 
                 term[ip] = 'Z'
                 mag = -1*mag
+            # The way I define things is such that for the 'c_i' fermions, even i  
+            # will correspons to a X operator where as an odd j corresponds to a Y operator. 
+            # However it does matter whether or not ip > jp. (the label of the qubit). 
+            # This is because of the tail of Z's in the JW transformation, which can turn an X 
+            # to Y or Y to an X if the tail of Z's of the other operator hit them. 
             elif ip>jp:
-                # this case deals with 
+                # for the 4-8-8 model it's not always true that i is even and j is odd. 
+                # It could be that both are even or both are odd. 
                 if i % 2 == 0:  
                     term[ip] = 'X'
                 else: 
@@ -494,7 +498,7 @@ class KitaevModel(Graph):
             if self.magnetic_field != (0,0,0): 
                 term_1 = ['I' for _ in range(self.number_of_Dfermions)]
                 term_2 = ['I' for _ in range(self.number_of_Dfermions)]
-                mag = -1*self.magnetic_field[self.edge_dict[self.edges[e]['label']] - 1]
+                mag = self.magnetic_field[self.edge_dict[self.edges[e]['label']] - 1] # need to check sign
                 term_1[edge_indx] = 'X'
                 if i % 2 == 0 :
                     term_1[ip] = 'Y'
@@ -502,7 +506,6 @@ class KitaevModel(Graph):
                 else: 
                     term_1[ip] = 'X'
                     # mag = -mag
-
 
                 for k in range(min(ip,edge_indx)+1, max(ip,edge_indx)):
                     term_1[k] = 'Z'
@@ -516,7 +519,6 @@ class KitaevModel(Graph):
                 else: 
                     term_2[jp] = 'X'
                     mag = -mag
-
 
                 for k in range(min(jp,edge_indx)+1, max(jp,edge_indx)):
                     term_2[k] = 'Z'

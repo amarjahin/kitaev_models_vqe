@@ -1,3 +1,4 @@
 test_gauges.py
 __pycache__/
 plots/
+parameters.py

@@ -9,6 +9,12 @@ from kitaev_models import KitaevModel
 from qiskit_conversion import convert_to_qiskit_PauliSumOp
 from ansatz import GSU,GBSU
 
+def change_gauge(u, edges): 
+    for e in edges: 
+        u[e[0], e[1]] = - u[e[0], e[1]]
+        u[e[1], e[0]] = - u[e[1], e[0]]
+    return u
+
 es = NumPyEigensolver(k=2)
 
 L = (1,1)
@@ -24,6 +30,9 @@ spin_hamiltonian = convert_to_qiskit_PauliSumOp(FH.spin_hamiltonian)
 spin_result = es.compute_eigenvalues(spin_hamiltonian)
 
 u = FH.std_gauge()
+# a change of gauge can be useful on a tours to change the non-contractible loops
+# edges = [(7, 1), (11, 13), (0,14), (10,4)]
+# u = change_gauge(u=u, edges=edges)
 h_u = FH.jw_hamiltonian_u(u=u)
 qubit_op = convert_to_qiskit_PauliSumOp(h_u)
 result_u = es.compute_eigenvalues(qubit_op)
@@ -39,7 +48,7 @@ print(f"{'first excited state energy per unit cell:':<60}",
         f"{result_u.eigenvalues[1].real/FH.number_of_unit_cells:>10f}")
 
 #######################################################################
-optimizer = COBYLA(maxiter=5000, tol=0.0001) 
+optimizer = COBYLA(maxiter=0, tol=0.0001) 
 simulator = StatevectorSimulator()
 QI = QuantumInstance(backend=simulator)
 
