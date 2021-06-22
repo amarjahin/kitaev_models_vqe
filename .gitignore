@@ -2,3 +2,8 @@ test_gauges.py
 __pycache__/
 plots/
 parameters.py
+output.txt
+physical_check.py
+tsvqe.py
+vqe_setup.py
+vqe.py
