@@ -2,6 +2,30 @@ from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter, ParameterVector
 from numpy import pi
 
+def ansatz(fermions_qubits, gauge_qubits, det=1):
+    active_qubits = fermions_qubits + gauge_qubits
+    # m_u = len(fermions_qubits)
+    m = len(active_qubits)
+    qc = QuantumCircuit(m)
+
+    #######################################################################
+    ######################### Best ansatz so far ##########################
+    #######################################################################
+    qc.append(GBSU(num_qubits=m, active_qubits=fermions_qubits, det=det, steps=1,
+                        param_name='a').to_instruction(),qargs=active_qubits)
+    qc.barrier()
+    qc.append(PSU(num_qubits=m, gauge_qubits=gauge_qubits, fermion_qubits=fermions_qubits,
+                        det=det, param_name='b').to_instruction(), qargs=active_qubits)
+    #######################################################################
+    qc.barrier()
+    qc.append(GBSU(num_qubits=m, active_qubits=gauge_qubits, det=det, steps=1, 
+                        param_name='c').to_instruction(), qargs=active_qubits)
+    qc.barrier()
+    qc.append(PDU(num_qubits=m, gauge_qubits=gauge_qubits, fermion_qubits=fermions_qubits,
+                        param_name='d').to_instruction(), qargs=active_qubits)
+
+    return qc
+
 def quadratic_exp(qc,theta, qubits): 
     i, j = qubits[0], qubits[1]
     for k in range(i, j): 
@@ -113,7 +137,7 @@ def GBSU(num_qubits, active_qubits, det=1, steps=1, param_name='th'):
     theta_3 = ParameterVector(f'{param_name}_3', length=int(m*(m-1)/2))
     theta_4 = ParameterVector(f'{param_name}_4', length=int(m*(m-1)/2))
 
-    qc = QuantumCircuit(num_qubits)
+    qc = QuantumCircuit(num_qubits, name='GBSU')
     for _ in range(steps):
         index_3 = 0
         index_4 = 0
@@ -162,7 +186,7 @@ def PSU(num_qubits, gauge_qubits,fermion_qubits, det=1, steps=1, param_name='th'
     theta_3 = ParameterVector(f'{param_name}_3', length=length)
     theta_4 = ParameterVector(f'{param_name}_4', length=length)
 
-    qc = QuantumCircuit(num_qubits)
+    qc = QuantumCircuit(num_qubits, name='PSU')
     for _ in range(steps):
         index_1 = 0
         index_2 = 0
@@ -238,7 +262,7 @@ def PDU(num_qubits, gauge_qubits,fermion_qubits, steps=1, param_name='th'):
     # theta_2 = ParameterVector(f'{param_name}_2', length=length)
     theta_3 = ParameterVector(f'{param_name}_3', length=length)
     theta_4 = ParameterVector(f'{param_name}_4', length=length)
-    qc = QuantumCircuit(num_qubits)
+    qc = QuantumCircuit(num_qubits, name='PDU')
     for _ in range(steps):
         # index_1 = 0
         # index_2 = 0
@@ -246,8 +270,8 @@ def PDU(num_qubits, gauge_qubits,fermion_qubits, steps=1, param_name='th'):
         index_4 = 0
         fermion_qubits_p = fermion_qubits.copy()
         for i in fermion_qubits:
-            fermion_qubits_p.pop
-            for j in fermion_qubits:
+            fermion_qubits_p.pop(0)
+            for j in fermion_qubits_p:
                 gauge_qubits_p = gauge_qubits.copy()
                 for k in gauge_qubits:
                     gauge_qubits_p.pop(0)
