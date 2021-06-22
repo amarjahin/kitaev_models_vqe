@@ -1,10 +1,13 @@
 # kitaev models VQE
 VQE implementation for the Kitaev model using Majorana fermions.
 
-In the case of zero magnetic field it's more computationally efficient to work in a fixed gauge subspace. 
-The vqe_u_set.py file is for running this case of zero magnetic field. 
+## Dependencies: 
+    1. numpy 
+    2. scipy 
+    3. networkx 
+    4. qiskit
 
-In the case of non-zero magnetic field is dealt with (not perfectly) in the vqe_setup.py file.
-
-# Things to add  
-1. Try to add the projection operator onto the physical subspace, i.e. a check whether the wavefunction obtained has a component in the physical subspace. 
+## Running the code
+To run the code you can either run: 
+    * "constant_gauge_vqe.py" which can only deal with pure Kitaev model case. 
+    * "msvqe.py" which can deal with pure Kiteav model + magnetic fields.
