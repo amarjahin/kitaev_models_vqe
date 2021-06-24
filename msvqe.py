@@ -1,4 +1,4 @@
-from numpy import zeros, array, conjugate, cos, sin, pi
+from numpy import zeros, array, conjugate, cos, sin, pi, round
 from scipy.optimize import minimize
 
 from qiskit import QuantumCircuit, transpile
@@ -11,6 +11,8 @@ from qiskit_conversion import convert_to_qiskit_PauliSumOp
 from ansatz import GBSU, PSU, PDU
 from cost import energy_ev
 from reduce_ansatz import reduce_params, reduce_ansatz
+
+from projector_op import projector
 
 es = NumPyEigensolver(k=256)
 
@@ -48,7 +50,8 @@ m = FH.number_of_Dfermions
 active_qubits = [*range(m)]
 fermions_qubits = [*range(m_u)]
 gauge_qubits = [*range(m_u, m)]
-init_gauge = [*range(m_u, m)]
+# init_gauge = [*range(m_u, m)]
+init_gauge = [2,3,4,5,6]
 
 h = FH.jw_hamiltonian() # the Jordan_Wigner transformed fermionic Hamiltonian
 qubit_op = convert_to_qiskit_PauliSumOp(h)
@@ -59,7 +62,12 @@ print(f'exact energy: {exact_eigenvalues[0].real}')
 
 #######################################################################
 simulator = StatevectorSimulator()
-method = 'CG'
+simulator_1 = QasmSimulator()
+
+# method = 'CG'
+method = 'BFGS'
+# method = 'L-BFGS-B'
+
 
 qc = QuantumCircuit(m)
 qc.append(init_state(m, init_gauge=init_gauge).to_instruction(), qargs=active_qubits)
@@ -67,17 +75,26 @@ qc = transpile(qc, simulator)
 qc.barrier()
 last_element = qc.data[-1] # use this to keep track of where various parts of the circuit start and end
 
+projector_op = projector(FH)
+init_sim = simulator.run(qc).result()
+init_state_vec = init_sim.get_statevector()
+init_phys_component = conjugate(init_state_vec.T) @ projector_op @ init_state_vec 
+print(f'initial phys projection: {init_phys_component}')
+
 cost = lambda params: energy_ev(hamiltonian=qubit_op.to_matrix(),simulator=simulator, qc_c=qc,
-                    params=params, phys_check=False).real
+                    params=params, phys_check=False, projector=projector_op).real
 
+print(f'the initial energy: {cost([])}')
 
+if round(init_phys_component, 8) == 0: 
+    raise ValueError('no phys component')
 det = 1
 # A dictionary holding the circuit used for various set of terms of the ansatz
 # 'a' --> theta_{ij} c_i c_j 
 # 'b' --> theta^alpha_{ij} b^alpha_i c_j 
 # 'c' --> theta^{alpha beta}_{ij} b^alpha_i b^beta_j 
 # 'd' --> theta^{alpha beta}_{ijkl} b^alpha_i b^beta_j c_k c_l 
-ansatz_terms_dict = {'a': GBSU(num_qubits=m, active_qubits=fermions_qubits, det=det, steps=1,param_name='a'), 
+ansatz_terms_dict = {'a': GBSU(num_qubits=m, active_qubits=fermions_qubits, det=1, steps=1,param_name='a'), 
         'b': PSU(num_qubits=m, gauge_qubits=gauge_qubits, fermion_qubits=fermions_qubits,det=det, param_name='b'), 
         'c': GBSU(num_qubits=m, active_qubits=gauge_qubits, det=det, steps=1, param_name='c'), 
         'd': PDU(num_qubits=m, gauge_qubits=gauge_qubits, fermion_qubits=fermions_qubits, param_name='d')
@@ -100,12 +117,12 @@ for key in ansatz_terms_dict:
     print('optimizer is now running...')
     result = minimize(fun=cost, x0=params0,  method=method, tol=0.0001, options={'maxiter':12}) # run optimizer
     print(f"optimization success:{result['success']}")
-    op_params = result['x'] # get optimal params 
+    op_params = list(result['x']) # get optimal params 
     qc = reduce_ansatz(qc, op_params, num_terms=num_terms_grouped[key], 
                         num_old_params=num_old_params, last_element=last_element)
     qc.barrier()
     last_element = qc.data[-1]
-    red_op_params = reduce_params(op_params)[0]
+    red_op_params = reduce_params(op_params, num_old_params)
     num_old_params = qc.num_parameters
 
     if not result['success']: # in case the optimizer was interupted, run optimizer again
@@ -113,12 +130,12 @@ for key in ansatz_terms_dict:
         print('optimizer running again after reduction...')
         result = minimize(fun=cost, x0=red_op_params,  method=method, tol=0.0001, options={'maxiter':None})
         print(f"optimization success:{result['success']}")
-        op_params = result['x']
+        op_params = list(result['x'])
         qc = reduce_ansatz(qc, op_params, num_terms=num_terms_grouped[key], 
                             num_old_params=num_old_params, last_element=last_element)
         qc.barrier()
         last_element = qc.data[-1]
-        red_op_params = reduce_params(op_params)[0]
+        red_op_params = reduce_params(op_params, num_old_params)
         num_old_params = qc.num_parameters
 
     print(f"final num reduced parameters after adding the '{key}' terms: {qc.num_parameters}")
@@ -126,10 +143,10 @@ for key in ansatz_terms_dict:
 
 
 optimal_energy = result['fun']
-op_params = result['x']
+
 print(f'optimal energy: {optimal_energy}')
 
-op_qc = qc.bind_parameters(op_params)
+op_qc = qc.bind_parameters(red_op_params)
 
 op_eigenstate = simulator.run(op_qc).result().get_statevector()
 
