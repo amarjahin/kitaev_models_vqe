@@ -34,7 +34,7 @@ def init_state(m, init_gauge=[]):
 
 L = (1,1)           # size of the lattice 
 J = (1.0, 1.0, 1.0) # pure Kitaev terms 
-H = (0.1, 0.1, 0)   # magnetic terms 
+H = (0, 0, 0)   # magnetic terms 
 
 # choose the kind of lattice and boundary conditions
 # lattice_type = 'honeycomb_open'
@@ -81,8 +81,7 @@ init_state_vec = init_sim.get_statevector()
 init_phys_component = conjugate(init_state_vec.T) @ projector_op @ init_state_vec 
 print(f'initial phys projection: {init_phys_component}')
 
-cost = lambda params: energy_ev(hamiltonian=qubit_op.to_matrix(),simulator=simulator, qc_c=qc,
-                    params=params, phys_check=False, projector=projector_op).real
+cost = lambda params: energy_ev(hamiltonian=qubit_op.to_matrix(),simulator=simulator, qc_c=qc,params=params).real
 
 print(f'the initial energy: {cost([])}')
 
