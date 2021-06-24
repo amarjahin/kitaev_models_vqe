@@ -5,7 +5,7 @@ from qiskit.circuit.library.standard_gates.rz import RZGate
 
 
 def reduce_params(params, num_old_params):
-    imp_params = [params[i] for i in range(num_old_params, len(params)) if round(params[i], 5) == 0]
+    imp_params = [params[i] for i in range(num_old_params, len(params)) if round(params[i], 5) != 0]
     imp_params = params[0:num_old_params] + imp_params
     return imp_params
 
