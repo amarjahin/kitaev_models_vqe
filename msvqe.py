@@ -1,9 +1,10 @@
 from numpy import zeros, array, conjugate, cos, sin, pi, round
+from numpy.linalg import eigh
 from scipy.optimize import minimize
 
 from qiskit import QuantumCircuit, transpile
 from qiskit.providers.aer import QasmSimulator, StatevectorSimulator
-from qiskit.algorithms import NumPyEigensolver
+from qiskit.algorithms import NumPyEigensolver,NumPyMinimumEigensolver
 from qiskit.circuit.library.standard_gates.rz import RZGate
 
 from kitaev_models import KitaevModel
@@ -14,7 +15,7 @@ from reduce_ansatz import reduce_params, reduce_ansatz
 
 from projector_op import projector
 
-es = NumPyEigensolver(k=256)
+mes = NumPyMinimumEigensolver()
 
 
 def init_state(m, init_gauge=[]):
@@ -67,10 +68,12 @@ init_gauge_p = [7]
 
 h = FH.jw_hamiltonian() # the Jordan_Wigner transformed fermionic Hamiltonian
 qubit_op = convert_to_qiskit_PauliSumOp(h)
-exact_result = es.compute_eigenvalues(qubit_op)
-exact_eigenstates = exact_result.eigenstates.to_matrix(massive=True)
-exact_eigenvalues = exact_result.eigenvalues
-print(f'exact energy: {exact_eigenvalues[0].real}')
+hamiltonian = qubit_op.to_matrix(massive = True)
+exact_eigenvalues, exact_eigenstates = eigh(hamiltonian)
+
+spin_ham = convert_to_qiskit_PauliSumOp(FH.spin_hamiltonian)
+spin_result = mes.compute_minimum_eigenvalue(spin_ham)
+print(f'exact energy: {spin_result.eigenvalue.real}')
 
 #######################################################################
 simulator = StatevectorSimulator()
@@ -91,7 +94,8 @@ init_state_vec = init_sim.get_statevector()
 init_phys_component = conjugate(init_state_vec.T) @ projector_op @ init_state_vec 
 print(f'initial phys projection: {init_phys_component}')
 
-cost = lambda params: energy_ev(hamiltonian=qubit_op.to_matrix(),simulator=simulator, qc_c=qc,params=params).real
+cost = lambda params: energy_ev(hamiltonian=hamiltonian,simulator=simulator,
+                qc_c=qc,params=params, projector= projector_op).real
 
 print(f'the initial energy: {cost([])}')
 
@@ -163,14 +167,15 @@ print(f'optimal energy: {optimal_energy}')
 
 op_qc = qc.bind_parameters(red_op_params)
 
-op_eigenstate = simulator.run(op_qc).result().get_statevector()
+op_state = simulator.run(op_qc).result().get_statevector()
+op_state = (projector_op @ op_state) / (conjugate(op_state.T) @ projector_op @ op_state)**(0.5)
 
 overlap_subspace = 0
-
 for i in range(len(exact_eigenstates)): 
-    if round(exact_eigenvalues[i].real, 10) != round(exact_eigenvalues[0].real, 10):
-        prob = abs(conjugate(op_eigenstate.T) @ exact_eigenstates[i])**2 
+    if round(exact_eigenvalues[i].real, 10) == round(spin_result.eigenvalue.real, 10):
+        prob = abs(conjugate(op_state.T) @ exact_eigenstates[:,i])**2 
+        prob = abs(conjugate(op_state.T) @ exact_eigenstates[:,i])**2 
         overlap_subspace = overlap_subspace + prob
-
-print(f"1 - |<exact|optimal>|^2 = {overlap_subspace}")
-
+        
+print(f"energy % error: {(optimal_energy - spin_result.eigenvalue) / spin_result.eigenvalue}")
+print(f"|<exact|optimal>|^2 : {overlap_subspace}")
