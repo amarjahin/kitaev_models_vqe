@@ -32,16 +32,27 @@ def init_state(m, init_gauge=[]):
         qc.x(init_gauge)
     return qc
 
+
+def change_ansatz(m, init_gauge_p): 
+    qc = QuantumCircuit(m, name='init_state') 
+    if len(init_gauge_p) != 0:
+        qc.x(init_gauge_p)
+
+    for q in init_gauge_p: 
+        for i in range(0, q): 
+            qc.z(i)
+    return qc
+
 L = (1,1)           # size of the lattice 
 J = (1.0, 1.0, 1.0) # pure Kitaev terms 
-H = (0, 0, 0)   # magnetic terms 
+H = (0.1, 0.1, 0.1)   # magnetic terms 
 
 # choose the kind of lattice and boundary conditions
 # lattice_type = 'honeycomb_open'
 # lattice_type = 'honeycomb_torus'
 # lattice_type = 'eight_spins_4_8_8'
-# lattice_type = 'square_octagon_torus'
-lattice_type = 'square_octagon_open'
+lattice_type = 'square_octagon_torus'
+# lattice_type = 'square_octagon_open'
 
 FH = KitaevModel(L=L, J=J, H=H, lattice_type=lattice_type) # this class contain various information about the model
 
@@ -51,7 +62,8 @@ active_qubits = [*range(m)]
 fermions_qubits = [*range(m_u)]
 gauge_qubits = [*range(m_u, m)]
 # init_gauge = [*range(m_u, m)]
-init_gauge = [2,3,4,5,6]
+init_gauge = [2,3,4,5, 6]
+init_gauge_p = [7]
 
 h = FH.jw_hamiltonian() # the Jordan_Wigner transformed fermionic Hamiltonian
 qubit_op = convert_to_qiskit_PauliSumOp(h)
@@ -66,8 +78,6 @@ simulator_1 = QasmSimulator()
 
 # method = 'CG'
 method = 'BFGS'
-# method = 'L-BFGS-B'
-
 
 qc = QuantumCircuit(m)
 qc.append(init_state(m, init_gauge=init_gauge).to_instruction(), qargs=active_qubits)
@@ -102,19 +112,24 @@ num_terms_grouped = {'a':2, 'b':2, 'c':2, 'd':8}
 params0 = []
 red_op_params = []
 num_old_params = 0
+nfev = 0
 print(r"Multistep VQE start")
 print(r"'a' terms are $\theta_{ij} c_i c_j$")
 print(r"'b' terms are $\theta^{\alpha}_{ij} b^\alpha_i c_j$")
 print(r"'c' terms are $\theta^{\alpha \beta}_{ij} b^\alpha_i b^\beta_j$")
 print(r"'d' terms are $\theta^{\alpha \beta}_{ijkl} b^\alpha_i b^\beta_j  c_k c_l$")
 for key in ansatz_terms_dict: 
+    qc.append(change_ansatz(8, init_gauge_p=init_gauge_p).to_instruction(), qargs=active_qubits)
     qc.append(ansatz_terms_dict[key].to_instruction(),qargs=active_qubits) # add next set of terms
+    qc.append(change_ansatz(8, init_gauge_p=init_gauge_p).to_instruction(), qargs=active_qubits)
+    
     print(f"num parameters after adding the '{key}' terms: {qc.num_parameters}")
     qc = transpile(qc, simulator) 
     params0 = list(zeros(qc.num_parameters))
     params0[0:len(red_op_params)] = red_op_params 
     print('optimizer is now running...')
     result = minimize(fun=cost, x0=params0,  method=method, tol=0.0001, options={'maxiter':12}) # run optimizer
+    nfev = nfev + result['nfev']
     print(f"optimization success:{result['success']}")
     op_params = list(result['x']) # get optimal params 
     qc = reduce_ansatz(qc, op_params, num_terms=num_terms_grouped[key], 
@@ -128,6 +143,7 @@ for key in ansatz_terms_dict:
         print(f"num parameters after parameters reduction: {qc.num_parameters}")
         print('optimizer running again after reduction...')
         result = minimize(fun=cost, x0=red_op_params,  method=method, tol=0.0001, options={'maxiter':None})
+        nfev = nfev + result['nfev']
         print(f"optimization success:{result['success']}")
         op_params = list(result['x'])
         qc = reduce_ansatz(qc, op_params, num_terms=num_terms_grouped[key], 
