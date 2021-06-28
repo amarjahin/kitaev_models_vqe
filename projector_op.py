@@ -81,7 +81,5 @@ def projector(KM):
 
     for i in range(KM.number_of_spins):
         projection_op = projection_op @ convert_to_qiskit_PauliSumOp(projection_op_i(KM = KM, i=i))
-    
-    projector = projection_op.to_matrix()
 
-    return projector
+    return projection_op
