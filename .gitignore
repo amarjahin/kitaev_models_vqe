@@ -7,3 +7,5 @@ physical_check.py
 tsvqe.py
 vqe_setup.py
 vqe.py
+time_diagnosis/pennylane_v_qiskit.py
+time_diagnosis/cirq_v_qiskit.py
