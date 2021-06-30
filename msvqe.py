@@ -10,7 +10,7 @@ from qiskit.circuit.library.standard_gates.rz import RZGate
 from kitaev_models import KitaevModel
 from qiskit_conversion import convert_to_qiskit_PauliSumOp
 from ansatz import GBSU, PSU, PDU
-from cost import energy_ev
+from cost import phys_energy_ev
 from reduce_ansatz import reduce_params, reduce_ansatz
 
 from projector_op import projector
@@ -77,10 +77,11 @@ print(f'exact energy: {spin_result.eigenvalue.real}')
 
 #######################################################################
 simulator = StatevectorSimulator()
-simulator_1 = QasmSimulator()
+# simulator = QasmSimulator()
 
 # method = 'CG'
 method = 'BFGS'
+# method = 'SLSQP'
 
 qc = QuantumCircuit(m)
 qc.append(init_state(m, init_gauge=init_gauge).to_instruction(), qargs=active_qubits)
@@ -89,12 +90,16 @@ qc.barrier()
 last_element = qc.data[-1] # use this to keep track of where various parts of the circuit start and end
 
 projector_op = projector(FH)
-init_sim = simulator.run(qc).result()
-init_state_vec = init_sim.get_statevector()
-init_phys_component = conjugate(init_state_vec.T) @ projector_op @ init_state_vec 
+projector_mat = projector_op.to_matrix()
+# init_sim = simulator.run(qc).result()
+# init_state_vec = init_sim.get_statevector()
+# init_phys_component = conjugate(init_state_vec.T) @ projector_mat @ init_state_vec 
+
+init_phys_component = phys_energy_ev(hamiltonian=qubit_op ,simulator=simulator,
+                qc_c=qc,params=[], projector= projector_op, return_projection=True)[1].real
 print(f'initial phys projection: {init_phys_component}')
 
-cost = lambda params: energy_ev(hamiltonian=hamiltonian,simulator=simulator,
+cost = lambda params: phys_energy_ev(hamiltonian=qubit_op ,simulator=simulator,
                 qc_c=qc,params=params, projector= projector_op).real
 
 print(f'the initial energy: {cost([])}')
@@ -123,9 +128,9 @@ print(r"'b' terms are $\theta^{\alpha}_{ij} b^\alpha_i c_j$")
 print(r"'c' terms are $\theta^{\alpha \beta}_{ij} b^\alpha_i b^\beta_j$")
 print(r"'d' terms are $\theta^{\alpha \beta}_{ijkl} b^\alpha_i b^\beta_j  c_k c_l$")
 for key in ansatz_terms_dict: 
-    qc.append(change_ansatz(8, init_gauge_p=init_gauge_p).to_instruction(), qargs=active_qubits)
+    qc.append(change_ansatz(m, init_gauge_p=init_gauge_p).to_instruction(), qargs=active_qubits)
     qc.append(ansatz_terms_dict[key].to_instruction(),qargs=active_qubits) # add next set of terms
-    qc.append(change_ansatz(8, init_gauge_p=init_gauge_p).to_instruction(), qargs=active_qubits)
+    qc.append(change_ansatz(m, init_gauge_p=init_gauge_p).to_instruction(), qargs=active_qubits)
     
     print(f"num parameters after adding the '{key}' terms: {qc.num_parameters}")
     qc = transpile(qc, simulator) 
@@ -164,18 +169,19 @@ for key in ansatz_terms_dict:
 optimal_energy = result['fun']
 
 print(f'optimal energy: {optimal_energy}')
+print(f"energy % error: {(optimal_energy - spin_result.eigenvalue.real) / spin_result.eigenvalue.real}")
 
-op_qc = qc.bind_parameters(red_op_params)
 
-op_state = simulator.run(op_qc).result().get_statevector()
-op_state = (projector_op @ op_state) / (conjugate(op_state.T) @ projector_op @ op_state)**(0.5)
+if isinstance(simulator, StatevectorSimulator):
+    op_qc = qc.bind_parameters(red_op_params)
+    op_state = simulator.run(op_qc).result().get_statevector()
+    op_state = (projector_mat @ op_state) / (conjugate(op_state.T) @ projector_mat @ op_state)**(0.5)
 
-overlap_subspace = 0
-for i in range(len(exact_eigenstates)): 
-    if round(exact_eigenvalues[i].real, 10) == round(spin_result.eigenvalue.real, 10):
-        prob = abs(conjugate(op_state.T) @ exact_eigenstates[:,i])**2 
-        prob = abs(conjugate(op_state.T) @ exact_eigenstates[:,i])**2 
-        overlap_subspace = overlap_subspace + prob
-        
-print(f"energy % error: {(optimal_energy - spin_result.eigenvalue) / spin_result.eigenvalue}")
-print(f"|<exact|optimal>|^2 : {overlap_subspace}")
+    overlap_subspace = 0
+    for i in range(len(exact_eigenstates)): 
+        if round(exact_eigenvalues[i].real, 10) == round(spin_result.eigenvalue.real, 10):
+            prob = abs(conjugate(op_state.T) @ exact_eigenstates[:,i])**2 
+            prob = abs(conjugate(op_state.T) @ exact_eigenstates[:,i])**2 
+            overlap_subspace = overlap_subspace + prob
+            
+    print(f"1 - |<exact|optimal>|^2 : {1 - overlap_subspace}")
