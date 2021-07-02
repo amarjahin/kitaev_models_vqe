@@ -112,12 +112,19 @@ class KitaevModel(Graph):
     def edge_direction_square_octagon(self,e): 
         r0, r1 =  e[0] % 4, e[1] % 4
         if r0 < r1:  
-            i = e[0]
-            j = e[1]
+            if self.edges[e]['label'] == 'Z': 
+                i = e[1]
+                j = e[0]
+            else:    
+                i = e[0]
+                j = e[1]
         else: 
-            i = e[1]
-            j = e[0]
-
+            if self.edges[e]['label'] == 'Z': 
+                i = e[0]
+                j = e[1]
+            else:    
+                i = e[1]
+                j = e[0]
         return i, j
 
 
@@ -132,10 +139,10 @@ class KitaevModel(Graph):
         if self.edges[e]['label'] == 'Y': 
             return 6*(ip//2) + 2*(ip % 2) + self.edge_dict['Y'] + self.number_of_Dfermions_u -1
         if self.edges[e]['label'] == 'Z': 
-            if i//4 == j//4: # this is to take care of the cases where the boundary condition tie the unit cell with itsself
-                return 6*(ip//2) + (j % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
-            else: 
-                return 6*(ip//2) + (i % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
+            # if i//4 == j//4: # this is to take care of the cases where the boundary condition tie the unit cell with itsself
+            #     return 6*(ip//2) + (j % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
+            # else: 
+            return 6*(ip//2) + (i % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
 
             # if self.Lx != 1 and self.Ly != 1: 
             #     return 6*(ip//2) + (i % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
