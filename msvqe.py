@@ -65,11 +65,11 @@ gauge_qubits = [*range(m_u, m)]
 # init_gauge_p = []
 ###### use this for when L = (1,1)##########
 #### this is to get ground state ######
-# init_gauge = [2,3,4,5, 7]
-# init_gauge_p = [6]
+init_gauge = [2,3,4,5, 7]
+init_gauge_p = [6]
 #### this is to get first excited state ######
-init_gauge = [2,3,4,5, 6]
-init_gauge_p = [7]
+# init_gauge = [2,3,4,5, 6]
+# init_gauge_p = [7]
 ############################################
 
 ###### use this for when L = (2,1)##########
