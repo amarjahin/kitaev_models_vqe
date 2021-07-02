@@ -132,7 +132,8 @@ class KitaevModel(Graph):
         return i//2
 
     def edge_qubit_label_square_octagon(self,e): 
-        i,j = self.edge_direction_square_octagon(e)
+        # i,j = self.edge_direction_square_octagon(e)
+        i = self.edge_direction_square_octagon(e)[0]
         ip = self.site_qubit_label_square_octagon(i)
         if self.edges[e]['label'] == 'X': 
             return 6*(ip//2) + 2*(i % 4) + self.edge_dict['X'] + self.number_of_Dfermions_u -1
