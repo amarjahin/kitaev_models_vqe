@@ -1,11 +1,11 @@
 test_gauges.py
 __pycache__/
 plots/
-parameters.py
-output.txt
-physical_check.py
-tsvqe.py
+vqe_results/
+classical_results.py
 vqe_setup.py
-vqe.py
+constant_gauge_vqe.py
+ansatz_diagnosis.py
+fgcost.py
 time_diagnosis/pennylane_v_qiskit.py
 time_diagnosis/cirq_v_qiskit.py
