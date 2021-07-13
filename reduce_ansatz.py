@@ -4,9 +4,14 @@ from qiskit import transpile
 from qiskit.circuit.library.standard_gates.rz import RZGate
 
 
-def reduce_params(params, num_old_params):
-    imp_params = [params[i] for i in range(num_old_params, len(params)) if round(params[i], 7) != 0]
-    imp_params = params[0:num_old_params] + imp_params
+def reduce_params(params, num_old_params, threshold=7, return_indices=False):
+    params = array(params)
+    imp_indx = [*range(num_old_params)] + list(nonzero(round(params[num_old_params::], threshold))[0]+num_old_params) 
+    # imp_params = [params[i] for i in range(num_old_params, len(params)) if round(params[i], threshold) != 0]
+    # imp_params = params[0:num_old_params] + imp_params
+    imp_params = list(params[imp_indx])
+    if return_indices:
+        return imp_params, imp_indx
     return imp_params
 
 
@@ -35,13 +40,14 @@ def rearrange_params(params, n=2):
         list: rearranged list of params
     """
     arranged_params = zeros_like(params)
-    l = len(params)//2
+    l = len(params)//n
     for i in range(l): 
-        arranged_params[n*i] =     params[i]
-        arranged_params[n*i + 1] = params[i + l]
+        for j in range(n):
+            arranged_params[n*i + j] = params[i + j*l]
+        # arranged_params[n*i + 1] = params[i + l]
     return list(arranged_params)
 
-def reduce_ansatz(ansatz, params, num_terms, num_old_params, last_element): 
+def reduce_ansatz(ansatz, params, num_terms, num_old_params, last_element, threshold=7): 
     """This reduce the ansatz by removing terms in the ansatz that have very small 
        value of paramters coming out of the optimizer
 
@@ -59,7 +65,7 @@ def reduce_ansatz(ansatz, params, num_terms, num_old_params, last_element):
     arranged_params = rearrange_params(params[num_old_params::])
     start_inx = ansatz.data.index(last_element)
     # l = len(arranged_params)
-    arranged_params = round(arranged_params, 7)
+    arranged_params = round(arranged_params, threshold)
     counter = 0
     indx = 0
     for i in ansatz.data[start_inx::]: 
