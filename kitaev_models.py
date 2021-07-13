@@ -1,6 +1,7 @@
 from networkx import Graph
-from numpy import zeros
+from numpy import zeros, argsort 
 from collections import Counter
+from qiskit_conversion import convert_to_qiskit_PauliSumOp
 
 class KitaevModel(Graph): 
     """A class holding information about the kitaev model on different lattices. 
@@ -34,11 +35,6 @@ class KitaevModel(Graph):
         lattice_to_func = {'honeycomb_torus':self.honeycomb_torus, 'honeycomb_open':self.honeycomb_open,
                             'eight_spins_4_8_8':self.eight_spins_4_8_8, 'square_octagon_torus':self.square_octagon_torus, 
                             'square_octagon_open':self.square_octagon_open}
-        # edge_direction_dict = {'honeycomb_torus':self.edge_direction_honeycomb, 'honeycomb_open':self.edge_direction_honeycomb,
-        #                     'eight_spins_4_8_8':self.edge_direction_square_octagon,
-        #                     'square_octagon_torus':self.edge_direction_square_octagon,
-        #                     'square_octagon_open':self.edge_direction_square_octagon}
-        # self.edge_direction = edge_direction_dict[self.lattice_type]
         define_lattice = lattice_to_func[lattice_type]
         define_lattice() 
         self.number_of_Dfermions = self.number_of_spins*2
@@ -140,17 +136,8 @@ class KitaevModel(Graph):
         if self.edges[e]['label'] == 'Y': 
             return 6*(ip//2) + 2*(ip % 2) + self.edge_dict['Y'] + self.number_of_Dfermions_u -1
         if self.edges[e]['label'] == 'Z': 
-            # if i//4 == j//4: # this is to take care of the cases where the boundary condition tie the unit cell with itsself
-            #     return 6*(ip//2) + (j % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
-            # else: 
             return 6*(ip//2) + (i % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
-
-            # if self.Lx != 1 and self.Ly != 1: 
-            #     return 6*(ip//2) + (i % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
-            # elif self.Lx == 1 and self.Ly == 1: 
-            #     return 6*(ip//2) + (j % 4) + self.edge_dict['Z'] + self.number_of_Dfermions_u - 1 
-            # elif self.Lx != 1 and self.Ly == 1:
-            #     if (i%4) =    
+  
 
     def honeycomb_torus(self): 
         self.edge_direction = self.edge_direction_honeycomb
@@ -237,28 +224,44 @@ class KitaevModel(Graph):
         return None
 
     def eight_spins_4_8_8(self): 
-        self.edge_direction = self.edge_direction_square_octagon
-        self.site_qubit_label = self.site_qubit_label_square_octagon
-        self.edge_qubit_label = self.edge_qubit_label_square_octagon
+        self.edge_direction = self.edge_direction_honeycomb
+        self.site_qubit_label = self.site_qubit_label_honeycomb
+        self.edge_qubit_label = self.edge_qubit_label_honeycomb
         self.number_of_spins = 8
         self.spin_hamiltonian = {}
         self.fermionic_hamiltonian = {}
-        self.add_edges_from([(6, 0, {'weight':self.jz, 'label':'Z'})])
-        self.add_edges_from([(2, 4, {'weight':self.jz, 'label':'Z'})])
-        self.add_edges_from([(1, 5, {'weight':self.jz, 'label':'Z'})])
-        self.add_edges_from([(3, 7, {'weight':self.jz, 'label':'Z'})])
+        ##################### andy's labels###########################
+        # self.add_edges_from([(3, 7, {'weight':self.jz, 'label':'Z'})])
+        # self.add_edges_from([(2, 5, {'weight':self.jz, 'label':'Z'})])
+        # self.add_edges_from([(1, 6, {'weight':self.jz, 'label':'Z'})])
+        # self.add_edges_from([(0, 4, {'weight':self.jz, 'label':'Z'})])
+        # self.add_edges_from([(2, 1, {'weight':self.jx, 'label':'X'})])
+        # self.add_edges_from([(0, 3, {'weight':self.jx, 'label':'X'})])
+        # self.add_edges_from([(0, 1, {'weight':self.jy, 'label':'Y'})])
+        # self.add_edges_from([(2, 3, {'weight':self.jy, 'label':'Y'})])
+        ##############################################################
 
-        self.add_edges_from([(0, 1, {'weight':self.jx, 'label':'X'})])
-        self.add_edges_from([(2, 3, {'weight':self.jx, 'label':'X'})])
-        self.add_edges_from([(0, 3, {'weight':self.jy, 'label':'Y'})])
-        self.add_edges_from([(2, 1, {'weight':self.jy, 'label':'Y'})])
+        self.add_edges_from([(0, 1, {'weight':self.jz, 'label':'Z'})])
+        self.add_edges_from([(2, 3, {'weight':self.jz, 'label':'Z'})])
+        self.add_edges_from([(4, 5, {'weight':self.jz, 'label':'Z'})])
+        self.add_edges_from([(6, 7, {'weight':self.jz, 'label':'Z'})])
+        self.add_edges_from([(2, 1, {'weight':self.jx, 'label':'X'})])
+        self.add_edges_from([(6, 5, {'weight':self.jx, 'label':'X'})])
+        self.add_edges_from([(1, 6, {'weight':self.jy, 'label':'Y'})])
+        self.add_edges_from([(2, 5, {'weight':self.jy, 'label':'Y'})])
 
+    
         for e in self.edges: 
             term = ['I' for _ in range(self.number_of_spins)]
             term[e[0]],    term[e[1]] = self.edges[e]['label'], self.edges[e]['label']
             mag = self.J[self.edge_dict[self.edges[e]['label']] - 1]
             self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
                                             term=''.join(term[::-1]), mag=-1*mag)
+
+        self.add_edges_from([(0, 3, {'weight':0, 'label':'X'})])
+        self.add_edges_from([(4, 7, {'weight':0, 'label':'X'})])
+        self.add_edges_from([(7, 0, {'weight':0, 'label':'Y'})])
+        self.add_edges_from([(3, 4, {'weight':0, 'label':'Y'})])
                 
         return None 
 
@@ -411,7 +414,8 @@ class KitaevModel(Graph):
             # c_i c_j for c_j c_i in the Hamiltonian, they are not the same. 
             i, j = self.edge_direction(e)
             ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
-            mag = self.edges[e]['weight'] * u[i,j]
+            mag = u[i,j]
+            # mag = self.edges[e]['weight'] * u[i,j]
             term = ['I' for _ in range(self.number_of_Dfermions_u)]
             if ip == jp: 
                 term[ip] = 'Z'
@@ -533,3 +537,84 @@ class KitaevModel(Graph):
                 h = self.add_term_to_hamiltonian(h=h, term=''.join(term_2[::-1]), mag=mag)
                 
         return h
+
+    def projection_op_i(self, i): 
+        """This gives the projection operator at the i-th site: 1/2*(1 + D_i) 
+
+        Args:
+            KM (KitaevModel): An instance of the class KitaevModel
+            i (int): the site on which to get the projection 
+
+        Returns:
+            dict: Dictionary with the operator 1/2*(1+D_i)
+        """
+        h = {}
+        edges = [(i, j) for j in self[i]] 
+
+        edges_labels = [self.edge_qubit_label(edges[i]) for i in range(len(edges))]
+        # edges_labels = sorted(edges_labels)
+        sorting_inds = argsort(edges_labels)
+        edges_labels = [edges_labels[i] for i in sorting_inds]
+        edges = [edges[i] for i in sorting_inds]
+        edges_directed = [self.edge_direction(edges[i]) for i in range(len(edges))]
+        correct_order = [edges_directed[i] == edges[i] for i in range(len(edges))]
+        
+        ip = i//2
+        j = edges_labels[0]
+        k = edges_labels[1]
+        l = edges_labels[2]
+        term = ['I' for _ in range(self.number_of_Dfermions)]
+        mag = 0.5
+        h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
+        
+        alpha = [self.edges[edges[i]]['label'] for i in range(3)]
+        if alpha == ['X', 'Z', 'Y'] or alpha == ['Y', 'X', 'Z'] or alpha == ['Z', 'Y', 'X']: 
+            mag = -mag
+
+        if i%2 == 0: 
+            term[ip] = 'Y'
+            mag = -mag
+        else: 
+            term[ip] = 'X'
+        for kp in range(ip+1, j): 
+            term[kp] = 'Z'
+        if correct_order[0]: 
+            term[j] = 'X'
+        else: 
+            term[j] = 'Y'
+
+        if correct_order[1]: 
+            term[k] = 'Y'
+        else: 
+            term[k] = 'X'
+            mag = -mag
+
+        for kp in range(k+1, l): 
+            term[kp] = 'Z'
+        if correct_order[2]: 
+            term[l] = 'X'
+        else: 
+            term[l] = 'Y'
+        # print(''.join(term[::-1]))
+
+        h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
+        
+        return h
+
+    def projector(self):
+        """This gives the projector operator onto the physical subspace prod_i 1/2*(1 + D_i)
+
+        Args:
+            KM (KitaevModel): An instance of KitaevModel
+
+        Returns:
+            ndarray: The projection operator
+        """
+        eye = ['I' for _ in range(self.number_of_Dfermions)]
+
+        projection_op = convert_to_qiskit_PauliSumOp( {''.join(eye):1} )
+
+        for i in range(self.number_of_spins):
+            projection_op = projection_op @ convert_to_qiskit_PauliSumOp(self.projection_op_i(i=i))
+
+        return projection_op
