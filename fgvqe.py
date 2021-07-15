@@ -15,6 +15,7 @@ from reduce_ansatz import reduce_params, reduce_ansatz
 # from projector_op import projector
 
 mes = NumPyMinimumEigensolver()
+es = NumPyEigensolver(k=2)
 
 def change_gauge(u, edges): 
     for e in edges: 
@@ -32,45 +33,48 @@ def get_full_state(psi_u, m_u, m, edges_label):
     psi[i-2**m_u:i] = psi_u
     return psi
 
-L = (2,1)           # size of the lattice 
+L = (2,2)           # size of the lattice 
 J = (1/2**0.5, 1/2**0.5, 1) # pure Kitaev terms 
-# J = (1.0, 1.0, 1.0) # pure Kitaev terms 
-H = (0, 0, 0)       # magnetic terms 
+H = (0.5/(3**0.5), 0.5/(3**0.5), 0.5/(3**0.5))   # magnetic terms 
 
 # choose the kind of lattice and boundary conditions
 # lattice_type = 'honeycomb_open'
 # lattice_type = 'honeycomb_torus'
 # lattice_type = 'eight_spins_4_8_8'
-lattice_type = 'square_octagon_torus'
-# lattice_type = 'square_octagon_open'
+# lattice_type = 'square_octagon_torus'
+lattice_type = 'square_octagon_open'
 
-FH = KitaevModel(L=L, J=J, H=H, lattice_type=lattice_type) # this class contain various information about the model
+# this class contain various information about the model
+FH = KitaevModel(L=L, J=J, H=H, lattice_type=lattice_type, add_H_perturbatively=True) 
 
 m_u = FH.number_of_Dfermions_u
 m = FH.number_of_Dfermions
 active_qubits = [*range(m_u)]
 
 u = FH.std_gauge()
-flp_edges = [(0,2)]
+# flp_edges = [(0,2)]
 # flp_edges = [(0,14),(4,10)] # for L = (2,2)
 # flp_edges = [(5,6), (4,7)] # for andy's 
-# flp_edges = []
+flp_edges = [(13, 14), (4, 10), (3, 5), (12, 15)]
 flp_edges_label = [FH.edge_qubit_label(e) for e in flp_edges]
 
 u = change_gauge(u=u, edges=flp_edges)
 
 h_u = FH.jw_hamiltonian_u(u) # the Jordan_Wigner transformed fermionic Hamiltonian
-h = FH.jw_hamiltonian()      # the Jordan_Wigner transformed fermionic Hamiltonian
+# h = FH.jw_hamiltonian()      # the Jordan_Wigner transformed fermionic Hamiltonian
 
 qubit_op_u = convert_to_qiskit_PauliSumOp(h_u)
-qubit_op = convert_to_qiskit_PauliSumOp(h)
+# qubit_op = convert_to_qiskit_PauliSumOp(h)
 hamiltonian_u = qubit_op_u.to_spmatrix()
 fermion_result = mes.compute_minimum_eigenvalue(qubit_op_u)
 print(f'exact fermion energy: {fermion_result.eigenvalue.real}')
 
 spin_ham = convert_to_qiskit_PauliSumOp(FH.spin_hamiltonian)
-spin_result = mes.compute_minimum_eigenvalue(spin_ham)
-print(f'exact spin energy: {spin_result.eigenvalue.real}')
+spin_result = es.compute_eigenvalues(spin_ham)
+print(f'exact spin energy: {spin_result.eigenvalues[0].real}')
+energy_gap = (spin_result.eigenvalues[1] - spin_result.eigenvalues[0]).real
+print(f'energy gap: {energy_gap}')
+
 
 #######################################################################
 simulator = StatevectorSimulator()
@@ -88,12 +92,12 @@ qc = QuantumCircuit(m_u)
 
 projector_op = FH.projector()
 # projector_mat = projector_op.to_matrix()
-projector_mat = projector_op.to_spmatrix()
-result = simulator.run(qc).result()
-init_vec_u = result.get_statevector()
-init_vec = full_state(init_vec_u)
-init_phys_component = conjugate(init_vec.T) @ projector_mat @ init_vec
-print(f'initial phys projection: {init_phys_component}')
+# projector_mat = projector_op.to_spmatrix()
+# result = simulator.run(qc).result()
+# init_vec_u = result.get_statevector()
+# init_vec = full_state(init_vec_u)
+# init_phys_component = conjugate(init_vec.T) @ projector_mat @ init_vec
+# print(f'initial phys projection: {init_phys_component}')
 
 # cost = lambda params: phys_energy_ev(hamiltonian=hamiltonian ,simulator=simulator,
 #                 qc_c=qc,params=params, projector= projector_mat, 
@@ -126,7 +130,7 @@ for key in ansatz_terms_dict:
     params0 = list(zeros(qc.num_parameters))
     params0[0:len(red_op_params)] = red_op_params 
     print('optimizer is now running...')
-    result = minimize(fun=cost, x0=params0,  method=method, tol=0.0001, options={'maxiter':None}) # run optimizer
+    result = minimize(fun=cost, x0=params0,  method=method, tol=0.00001, options={'maxiter':None}) # run optimizer
     nfev = nfev + result['nfev']
     nit = nit + result['nit']
     print(f"optimization success:{result['success']}")
@@ -160,7 +164,7 @@ for key in ansatz_terms_dict:
 optimal_energy = result['fun']
 
 print(f'optimal energy: {optimal_energy}')
-print(f"energy % error: {(optimal_energy - spin_result.eigenvalue.real) / spin_result.eigenvalue.real}")
+print(f"optimal - exact / gap: {(optimal_energy - spin_result.eigenvalues[0].real) / energy_gap }")
 
 print('num of iterations: ', nit)
 print('num of evaluations: ', nfev)
