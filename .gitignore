@@ -7,5 +7,6 @@ vqe_setup.py
 constant_gauge_vqe.py
 ansatz_diagnosis.py
 fgcost.py
+vqe_w_save.py
 time_diagnosis/pennylane_v_qiskit.py
 time_diagnosis/cirq_v_qiskit.py
