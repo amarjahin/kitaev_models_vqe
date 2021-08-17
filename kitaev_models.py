@@ -12,7 +12,7 @@ class KitaevModel(Graph):
 
     """
 
-    def __init__(self, L, J, H=(0,0,0), lattice_type='honeycomb_torus', add_H_perturbatively=False): 
+    def __init__(self, L, J, H=(0,0,0),kappa_1=0,kappa_2=0, lattice_type='honeycomb_torus'): 
         """To initialize the Kitaev model you need to specify the size L, and the 
            strength of the interaction J
 
@@ -30,7 +30,9 @@ class KitaevModel(Graph):
         self.jx, self.jy, self.jz = J[0], J[1], J[2]
         self.J = J
         self.magnetic_field = H
-        self.kappa = H[0]*H[1]*H[2] / (J[0]**2 + J[1]**2 + J[2]**2)
+        self.kappa_1 = kappa_1
+        self.kappa_2 = kappa_2
+        self.kappa_h = H[0]*H[1]*H[2] / (J[0]**2 + J[1]**2 + J[2]**2)
         self.edge_dict = {'X':1, 'Y':2, 'Z':3}
         self.lattice_type = lattice_type
         self.number_of_unit_cells = self.Lx*self.Ly
@@ -43,45 +45,49 @@ class KitaevModel(Graph):
         self.number_of_Dfermions_u = self.number_of_spins//2
         # add external magnetic field terms to the spin Hamiltonian if they exist 
         if self.magnetic_field != (0,0,0): 
-            if add_H_perturbatively: 
-                mag = self.jx**2 + self.jy**2 + self.jz**2 
-                mag = -1*self.kappa
-                for i in range(self.number_of_spins): 
-                    term_11 = ['I' for _ in range(self.number_of_spins)] # this is the a) term in Kitaev eq. 47
-                    term_12 = ['I' for _ in range(self.number_of_spins)] # this is the a) term in Kitaev eq. 47
-                    term_13 = ['I' for _ in range(self.number_of_spins)] # this is the a) term in Kitaev eq. 47
-                    term_2 = ['I' for _ in range(self.number_of_spins)] # this is the b) term in Kitaev eq. 47
-                    term_11[i] = 'X'
-                    term_12[i] = 'Y'
-                    term_13[i] = 'Z'
-                    for n in self[i]: 
-                        term_2[n] = self.edges[i,n]['label']
-                        if self.edges[i,n]['label'] == 'X': 
-                            term_12[n] = 'X'
-                            term_13[n] = 'X'
-                        elif self.edges[i,n]['label'] == 'Y': 
-                            term_11[n] = 'Y'
-                            term_13[n] = 'Y'
-                        elif self.edges[i,n]['label'] == 'Z':
-                            term_11[n] = 'Z'
-                            term_12[n] = 'Z'
+            for i in range(self.number_of_spins): 
+                for d in ['X', 'Y', 'Z']: 
+                    term = ['I' for _ in range(self.number_of_spins)]
+                    term[i] = d
+                    k = self.edge_dict[d] - 1
+                    self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term[::-1]), mag=-1*self.magnetic_field[k])
 
-                    self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
-                                                term=''.join(term_13[::-1]), mag=mag)
-                    self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
-                                                term=''.join(term_11[::-1]), mag=mag)
-                    self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
-                                                term=''.join(term_12[::-1]), mag=mag)                            
-                    self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
-                                                term=''.join(term_2[::-1]), mag=mag)
-            else:
-                for i in range(self.number_of_spins): 
-                    for d in ['X', 'Y', 'Z']: 
-                        term = ['I' for _ in range(self.number_of_spins)]
-                        term[i] = d
-                        k = self.edge_dict[d] - 1
-                        self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
-                                                term=''.join(term[::-1]), mag=-1*self.magnetic_field[k])
+        if self.kappa_1 != 0: 
+            mag = -1*self.kappa_1
+            for i in range(self.number_of_spins): 
+                term_11 = ['I' for _ in range(self.number_of_spins)] # this is the a) term in Kitaev eq. 47
+                term_12 = ['I' for _ in range(self.number_of_spins)] # this is the a) term in Kitaev eq. 47
+                term_13 = ['I' for _ in range(self.number_of_spins)] # this is the a) term in Kitaev eq. 47
+                term_11[i] = 'X'
+                term_12[i] = 'Y'
+                term_13[i] = 'Z'
+                for n in self[i]: 
+                    if self.edges[i,n]['label'] == 'X': 
+                        term_12[n] = 'X'
+                        term_13[n] = 'X'
+                    elif self.edges[i,n]['label'] == 'Y': 
+                        term_11[n] = 'Y'
+                        term_13[n] = 'Y'
+                    elif self.edges[i,n]['label'] == 'Z':
+                        term_11[n] = 'Z'
+                        term_12[n] = 'Z'
+
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_13[::-1]), mag=mag)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_11[::-1]), mag=mag)
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                            term=''.join(term_12[::-1]), mag=mag)                            
+
+        if self.kappa_2 != 0: 
+            mag = -1*self.kappa_2
+            for i in range(self.number_of_spins): 
+                term_2 = ['I' for _ in range(self.number_of_spins)] # this is the b) term in Kitaev eq. 47
+                for n in self[i]: 
+                    term_2[n] = self.edges[i,n]['label']
+                self.spin_hamiltonian = self.add_term_to_hamiltonian(h=self.spin_hamiltonian, 
+                                term=''.join(term_2[::-1]), mag=mag)
 
 
     def unit_cell_indx(self, i, j):
@@ -128,13 +134,13 @@ class KitaevModel(Graph):
             i = e[1]
             j = e[0]
 
-        return i, j
+        return j, i
 
     def site_qubit_label_honeycomb(self, i): 
         return i//2
 
     def edge_qubit_label_honeycomb(self,e): 
-        i = self.edge_direction_honeycomb(e)[0]
+        i = self.edge_direction_honeycomb(e)[1]
         ip = self.site_qubit_label_honeycomb(i)
         return 3*(ip) + self.edge_dict[self.edges[e]['label']] + self.number_of_Dfermions_u - 1
 
@@ -154,7 +160,7 @@ class KitaevModel(Graph):
             else:    
                 i = e[1]
                 j = e[0]
-        return i, j
+        return j, i
 
 
     def site_qubit_label_square_octagon(self, i): 
@@ -162,7 +168,7 @@ class KitaevModel(Graph):
 
     def edge_qubit_label_square_octagon(self,e): 
         # i,j = self.edge_direction_square_octagon(e)
-        i = self.edge_direction_square_octagon(e)[0]
+        i = self.edge_direction_square_octagon(e)[1]
         ip = self.site_qubit_label_square_octagon(i)
         if self.edges[e]['label'] == 'X': 
             return 6*(ip//2) + 2*(i % 4) + self.edge_dict['X'] + self.number_of_Dfermions_u -1
@@ -437,7 +443,31 @@ class KitaevModel(Graph):
 
         return u 
 
-    def jw_hamiltonian_u(self, u):
+    def two_fermion_hamiltonian(self, flp_edges=[]): 
+        h = zeros((self.number_of_spins, self.number_of_spins))
+        for e in self.edges: 
+            i, j = self.edge_direction(e)
+            h[i, j] = self.edges[e]['weight']
+            h[j, i] = -self.edges[e]['weight']
+
+        for e in flp_edges: 
+            h[e[0], e[1]] = - h[e[0], e[1]]
+            h[e[1], e[0]] = - h[e[1], e[0]]
+            
+        if self.kappa_1 != 0: 
+            for k in range(self.number_of_spins): 
+                k_XYZ_neighbours = [0,0,0]
+                for n in self[k]: 
+                    k_XYZ_neighbours[self.edge_dict[self[k][n]['label']] - 1] = n
+                for d in [(0,1), (1,2), (2,0)]:
+                    # this is the a) term in Kitaev eq. 47
+                    mag = -self.kappa_1 * sign(h[k_XYZ_neighbours[d[1]], k] * h[k, k_XYZ_neighbours[d[0]]])
+                    h[k_XYZ_neighbours[d[1]], k_XYZ_neighbours[d[0]]] = h[k_XYZ_neighbours[d[1]], k_XYZ_neighbours[d[0]]]+mag 
+                    h[k_XYZ_neighbours[d[0]], k_XYZ_neighbours[d[1]]] = h[k_XYZ_neighbours[d[0]], k_XYZ_neighbours[d[1]]]-mag 
+        return h 
+
+
+    def jw_hamiltonian_u(self, h):
         """Get the Hamiltonian of the system with a fixed gauge transformed using Jordan-Wigner 
 
         Args:
@@ -447,18 +477,19 @@ class KitaevModel(Graph):
             dict: A dictionary of the Hamiltonian, eg {'IIIZ':0.5,'IIZI:-1} means h = 0.5 * IIIZ - IIZI.
         """
 
-        h = {}
+        H = {}
         for e in self.edges: 
+            # this loop add the term J u[j,i] i c_j c_i
             # the direction of the edge is important to know whether we have 
             # c_i c_j for c_j c_i in the Hamiltonian, they are not the same. 
-            i, j = self.edge_direction(e)
+            j, i = self.edge_direction(e)
             ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
-            # mag = u[i,j]
-            mag = self.edges[e]['weight'] * u[i,j]
+            mag = h[j,i]
+            # mag = self.edges[e]['weight'] * u[j,i]
             term = ['I' for _ in range(self.number_of_Dfermions_u)]
             if ip == jp: 
                 term[ip] = 'Z'
-                mag = -1*mag
+                # mag = -1*mag
             # The way I define things is such that for the 'c_i' fermions, even i  
             # will correspons to a X operator where as an odd j corresponds to a Y operator. 
             # However it does matter whether or not ip > jp. (the label of the qubit). 
@@ -467,153 +498,13 @@ class KitaevModel(Graph):
             else:
                 # for the 4-8-8 model it's not always true that i is even and j is odd. 
                 # It could be that both are even or both are odd. 
-                n = [i, j] 
-                qubit_label = [ip, jp]
+                n = [j, i] 
+                qubit_label = [jp, ip]
                 mag = (-1) ** (num_perm_to_sort(qubit_label)) * mag
-                sort_indx = argsort(qubit_label)[::-1]
+                sort_indx = argsort(qubit_label)
                 i, j = n[sort_indx[0]], n[sort_indx[1]]
                 ip, jp = qubit_label[sort_indx[0]], qubit_label[sort_indx[1]]
 
-                if i % 2 == 0:  
-                    term[ip] = 'X'
-                else: 
-                    term[ip] = 'Y'
-                if j % 2 == 0: 
-                    term[jp] = 'Y'
-                    mag = -1*mag
-                else: 
-                    term[jp] = 'X'
-
-            for k in range(jp+1, ip):
-                term[k] = 'Z'
-            h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
-
-        # add magnetic field terms perturbatively if they exist  
-        if self.magnetic_field != (0,0,0): 
-            for k in range(self.number_of_spins): 
-                term_2 = ['I' for _ in range(self.number_of_Dfermions_u)] # this is the b) term in Kitaev eq. 47
-                k_XYZ_neighbours = [0,0,0]
-                for n in self[k]: 
-                    k_XYZ_neighbours[self.edge_dict[self[k][n]['label']] - 1] = n
-
-                for d in [(0,1), (1,2), (2,0)]:
-                    term_1 = ['I' for _ in range(self.number_of_Dfermions_u)] # this is the a) term in Kitaev eq. 47
-                    mag_1 = self.kappa * sign(u[k_XYZ_neighbours[d[0]], k] * u[k, k_XYZ_neighbours[d[1]]])
-                    n_1 = [k_XYZ_neighbours[d[0]], k_XYZ_neighbours[d[1]]] # neighbours involved in term_1 
-                    qubit_label_1 = [self.site_qubit_label(i) for i in n_1]
-                    mag_1 = (-1) ** (num_perm_to_sort(qubit_label_1)) * mag_1
-                    sort_indx = argsort(qubit_label_1)[::-1]
-                    i, j = n_1[sort_indx[0]], n_1[sort_indx[1]]
-                    ip, jp = qubit_label_1[sort_indx[0]], qubit_label_1[sort_indx[1]]
-
-                    if i % 2 == 0:  
-                        term_1[ip] = 'X'
-                    else: 
-                        term_1[ip] = 'Y'
-                    if j % 2 == 0: 
-                        term_1[jp] = 'Y'
-                        mag_1 = -1*mag_1
-                    else: 
-                        term_1[jp] = 'X'
-
-                    for kpp in range(jp+1, ip):
-                        term_1[kpp] = 'Z'
-                    h = self.add_term_to_hamiltonian(h=h, term=''.join(term_1[::-1]), mag=mag_1)
-
-                mag_2 = self.kappa * sign(u[k_XYZ_neighbours[0], k] * u[k_XYZ_neighbours[1], k] * u[k_XYZ_neighbours[2], k])
-                n_2 = [k_XYZ_neighbours[0], k_XYZ_neighbours[1], k, k_XYZ_neighbours[2]] # neighbours involved in term_2 
-                qubit_label_2 = [self.site_qubit_label(i) for i in n_2]
-                mag_2 = (-1) ** (num_perm_to_sort(qubit_label_2)) * mag_2
-                # print(qubit_label_2, num_perm_to_sort(qubit_label_2))
-                sort_indx = argsort(qubit_label_2)[::-1]
-                i, j, k, l = n_2[sort_indx[0]], n_2[sort_indx[1]], n_2[sort_indx[2]], n_2[sort_indx[3]]
-                ip, jp = qubit_label_2[sort_indx[0]], qubit_label_2[sort_indx[1]]
-                kp, lp = qubit_label_2[sort_indx[2]], qubit_label_2[sort_indx[3]]
-                if kp==lp: 
-                    term_2[kp] = 'Z'
-                    if (k,l) == self.edge_direction((k,l)): 
-                        mag_2 = -1 * mag_2
-                    if i % 2 == 0:  
-                        term_2[ip] = 'X'
-                    else: 
-                        term_2[ip] = 'Y'
-                    if j % 2 == 0: 
-                        term_2[jp] = 'Y'
-                        mag_2 = -1*mag_2
-                    else: 
-                        term_2[jp] = 'X'
-                    for kpp in range(jp+1, ip):
-                        term_2[kpp] = 'Z'
-                elif kp==jp: 
-                    if (j,k) == self.edge_direction((j,k)): 
-                        mag_2 = -1 * mag_2
-                    if i % 2 == 0:  
-                        term_2[ip] = 'X'
-                    else: 
-                        term_2[ip] = 'Y'
-                    if l % 2 == 0: 
-                        term_2[lp] = 'Y'
-                        mag_2 = -1*mag_2
-                    else: 
-                        term_2[lp] = 'X'
-                    for kpp in range(lp+1, ip):
-                        term_2[kpp] = 'Z'
-                    term_2[kp] = 'I'
-                elif ip==jp: 
-                    term_2[ip] = 'Z'
-                    if (i,j) == self.edge_direction((i,j)): 
-                        mag_2 = -1 * mag_2
-                    if k % 2 == 0:  
-                        term_2[kp] = 'X'
-                    else: 
-                        term_2[kp] = 'Y'
-                    if l % 2 == 0: 
-                        term_2[lp] = 'Y'
-                        mag_2 = -1*mag_2
-                    else: 
-                        term_2[lp] = 'X'
-                    for kpp in range(lp+1, kp):
-                        term_2[kpp] = 'Z'
-
-                h = self.add_term_to_hamiltonian(h=h, term=''.join(term_2[::-1]), mag=mag_2)
-                    
-            
-        return h
-
-
-    def jw_hamiltonian(self):
-        h = {}
-        for e in self.edges: 
-            # the direction of the edge is important to know whether we have 
-            # u_{ij} c_i c_j for u_{ij} c_j c_i in the Hamiltonian, they are not the same. 
-            # also note here that u_{ij} is an operator 
-            i, j = self.edge_direction(e)
-            ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
-            edge_indx = self.edge_qubit_label(e)
-            mag = -1*self.edges[e]['weight'] # need to check this sign though
-            term = ['I' for _ in range(self.number_of_Dfermions)]
-            if ip == jp: 
-                term[ip] = 'Z'
-                mag = -1*mag
-            # The way I define things is such that for the 'c_i' fermions, even i  
-            # will correspons to a X operator where as an odd j corresponds to a Y operator. 
-            # However it does matter whether or not ip > jp. (the label of the qubit). 
-            # This is because of the tail of Z's in the JW transformation, which can turn an X 
-            # to Y or Y to an X if the tail of Z's of the other operator hit them. 
-            elif ip>jp:
-                # for the 4-8-8 model it's not always true that i is even and j is odd. 
-                # It could be that both are even or both are odd. 
-                if i % 2 == 0:  
-                    term[ip] = 'X'
-                else: 
-                    term[ip] = 'Y'
-                if j % 2 == 0: 
-                    term[jp] = 'Y'
-                    mag = -1*mag
-                else: 
-                    term[jp] = 'X'
-            else: 
-                mag = -1*mag 
                 if j % 2 == 0:  
                     term[jp] = 'X'
                 else: 
@@ -624,15 +515,166 @@ class KitaevModel(Graph):
                 else: 
                     term[ip] = 'X'
 
-            for k in range(min(ip,jp)+1, max(ip,jp)):
+            for k in range(ip+1, jp):
+                term[k] = 'Z'
+            H = self.add_term_to_hamiltonian(h=H, term=''.join(term[::-1]), mag=mag)
+
+        if self.kappa_1 != 0: 
+            for k in range(self.number_of_spins): 
+                k_XYZ_neighbours = [0,0,0]
+                for n in self[k]: 
+                    k_XYZ_neighbours[self.edge_dict[self[k][n]['label']] - 1] = n
+                for d in [(0,1), (1,2), (2,0)]:
+                    term_1 = ['I' for _ in range(self.number_of_Dfermions_u)] # this is the a) term in Kitaev eq. 47
+                    mag_1 = self.kappa_1 * sign(h[k_XYZ_neighbours[d[1]], k] * h[k, k_XYZ_neighbours[d[0]]])
+                    n_1 = [k_XYZ_neighbours[d[1]], k_XYZ_neighbours[d[0]]] # neighbours involved in term_1 
+                    qubit_label_1 = [self.site_qubit_label(i) for i in n_1]
+                    mag_1 = (-1) ** (num_perm_to_sort(qubit_label_1)) * mag_1
+                    sort_indx = argsort(qubit_label_1)
+                    i, j = n_1[sort_indx[0]], n_1[sort_indx[1]]
+                    ip, jp = qubit_label_1[sort_indx[0]], qubit_label_1[sort_indx[1]]
+
+                    if j % 2 == 0:  
+                        term_1[jp] = 'X'
+                    else: 
+                        term_1[jp] = 'Y'
+                    if i % 2 == 0: 
+                        term_1[ip] = 'Y'
+                        mag_1 = -1*mag_1
+                    else: 
+                        term_1[ip] = 'X'
+
+                    for kpp in range(ip+1, jp):
+                        term_1[kpp] = 'Z'
+                    H = self.add_term_to_hamiltonian(h=H, term=''.join(term_1[::-1]), mag=mag_1)
+        if self.kappa_2 != 0: 
+            for l in range(self.number_of_spins): 
+                k_XYZ_neighbours = [0,0,0]
+                for n in self[l]: 
+                    k_XYZ_neighbours[self.edge_dict[self[l][n]['label']] - 1] = n
+                term_2 = ['I' for _ in range(self.number_of_Dfermions_u)] # this is the b) term in Kitaev eq. 47
+                mag_2 = -self.kappa_2 * sign(h[k_XYZ_neighbours[0], l] * h[k_XYZ_neighbours[1], l] * h[k_XYZ_neighbours[2], l])
+                n_2 = [k_XYZ_neighbours[0], k_XYZ_neighbours[1], k_XYZ_neighbours[2], l] # neighbours involved in term_2 
+                qubit_label_2 = [self.site_qubit_label(i) for i in n_2]
+                mag_2 = (-1) ** (num_perm_to_sort(qubit_label_2)) * mag_2
+                # print(qubit_label_2, num_perm_to_sort(qubit_label_2))
+                sort_indx = argsort(qubit_label_2)
+                i,j,k,l = n_2[sort_indx[0]], n_2[sort_indx[1]], n_2[sort_indx[2]], n_2[sort_indx[3]]
+                ip, jp = qubit_label_2[sort_indx[0]], qubit_label_2[sort_indx[1]]
+                kp, lp = qubit_label_2[sort_indx[2]], qubit_label_2[sort_indx[3]]
+                if kp==lp: 
+                    term_2[kp] = 'Z'
+                    if (l,k) == self.edge_direction((k,l)): 
+                        mag_2 = -1 * mag_2
+                    if j % 2 == 0:  
+                        term_2[jp] = 'X'
+                    else: 
+                        term_2[jp] = 'Y'
+                    if i % 2 == 0: 
+                        term_2[ip] = 'Y'
+                        mag_2 = -1*mag_2
+                    else: 
+                        term_2[ip] = 'X'
+                    for kpp in range(ip+1, jp):
+                        term_2[kpp] = 'Z'
+                elif kp==jp: 
+                    if (k,j) == self.edge_direction((j,k)): 
+                        mag_2 = -1 * mag_2
+                    if l % 2 == 0:  
+                        term_2[lp] = 'X'
+                    else: 
+                        term_2[lp] = 'Y'
+                    if i % 2 == 0: 
+                        term_2[ip] = 'Y'
+                        mag_2 = -1*mag_2
+                    else: 
+                        term_2[ip] = 'X'
+                    for kpp in range(ip+1, lp):
+                        term_2[kpp] = 'Z'
+                    term_2[kp] = 'I'
+                elif ip==jp: 
+                    term_2[ip] = 'Z'
+                    if (j,i) == self.edge_direction((i,j)): 
+                        mag_2 = -1 * mag_2
+                    if l % 2 == 0:  
+                        term_2[lp] = 'X'
+                    else: 
+                        term_2[lp] = 'Y'
+                    if k % 2 == 0: 
+                        term_2[kp] = 'Y'
+                        mag_2 = -1*mag_2
+                    else: 
+                        term_2[kp] = 'X'
+                    for kpp in range(kp+1, lp):
+                        term_2[kpp] = 'Z'
+
+                H = self.add_term_to_hamiltonian(h=H, term=''.join(term_2[::-1]), mag=mag_2)
+                    
+            
+        return H
+
+
+    def jw_hamiltonian(self):
+        h = {}
+        for e in self.edges: 
+            # the direction of the edge is important to know whether we have 
+            # u_{ij} c_i c_j for u_{ij} c_j c_i in the Hamiltonian, they are not the same. 
+            # also note here that u_{ij} is an operator 
+            j, i = self.edge_direction(e)
+            ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
+            edge_indx = self.edge_qubit_label(e)
+            mag = 1*self.edges[e]['weight'] # need to check this sign though
+            term = ['I' for _ in range(self.number_of_Dfermions)]
+            if ip == jp: 
+                term[ip] = 'Z'
+                # mag = -1*mag
+            # The way I define things is such that for the 'c_i' fermions, even i  
+            # will correspons to a X operator where as an odd j corresponds to a Y operator. 
+            # However it does matter whether or not ip > jp. (the label of the qubit). 
+            # This is because of the tail of Z's in the JW transformation, which can turn an X 
+            # to Y or Y to an X if the tail of Z's of the other operator hit them. 
+            else:
+                # for the 4-8-8 model it's not always true that i is even and j is odd. 
+                # It could be that both are even or both are odd. 
+                n = [j, i] 
+                qubit_label = [jp, ip]
+                mag = (-1) ** (num_perm_to_sort(qubit_label)) * mag
+                sort_indx = argsort(qubit_label)
+                i, j = n[sort_indx[0]], n[sort_indx[1]]
+                ip, jp = qubit_label[sort_indx[0]], qubit_label[sort_indx[1]]
+                if j % 2 == 0:  
+                    term[jp] = 'X'
+                else: 
+                    term[jp] = 'Y'
+                if i % 2 == 0: 
+                    term[ip] = 'Y'
+                    mag = -1*mag
+                else: 
+                    term[ip] = 'X'
+            # else: 
+            #     mag = -1*mag 
+            #     if j % 2 == 0:  
+            #         term[jp] = 'X'
+            #     else: 
+            #         term[jp] = 'Y'
+            #     if i % 2 == 0: 
+            #         term[ip] = 'Y'
+            #         mag = -1*mag
+            #     else: 
+            #         term[ip] = 'X'
+
+            for k in range(ip+1, jp):
                 term[k] = 'Z'
             
             # add the u_{ij} part
             term[edge_indx] = 'Z'
+            # mag = -mag
             h = self.add_term_to_hamiltonian(h=h, term=''.join(term[::-1]), mag=mag)
 
             # add magnetic field terms if they exist  
             if self.magnetic_field != (0,0,0): 
+                j, i = self.edge_direction(e)
+                ip, jp = self.site_qubit_label(i), self.site_qubit_label(j)
                 term_1 = ['I' for _ in range(self.number_of_Dfermions)]
                 term_2 = ['I' for _ in range(self.number_of_Dfermions)]
                 mag = self.magnetic_field[self.edge_dict[self.edges[e]['label']] - 1] # need to check sign
@@ -643,21 +685,28 @@ class KitaevModel(Graph):
                 else: 
                     term_1[ip] = 'X'
                     # mag = -mag
+                
+                # print(mag, term_1[::-1])
+                
 
-                for k in range(min(ip,edge_indx)+1, max(ip,edge_indx)):
+                for k in range(ip+1, edge_indx):
                     term_1[k] = 'Z'
                 h = self.add_term_to_hamiltonian(h=h, term=''.join(term_1[::-1]), mag=mag)
 
-                mag = -1*self.magnetic_field[self.edge_dict[self.edges[e]['label']] - 1]
+                mag = self.magnetic_field[self.edge_dict[self.edges[e]['label']] - 1]
+
                 term_2[edge_indx] = 'Y'
                 if j % 2 == 0: 
                     term_2[jp] = 'Y'
-                    # mag = -mag
+                    mag = -mag
                 else: 
                     term_2[jp] = 'X'
-                    mag = -mag
+                    # mag = -mag
 
-                for k in range(min(jp,edge_indx)+1, max(jp,edge_indx)):
+                # print(mag, term_1[::-1])
+                
+
+                for k in range(jp+1, edge_indx):
                     term_2[k] = 'Z'
                 h = self.add_term_to_hamiltonian(h=h, term=''.join(term_2[::-1]), mag=mag)
                 
@@ -681,7 +730,7 @@ class KitaevModel(Graph):
         sorting_inds = argsort(edges_labels)
         edges_labels = [edges_labels[i] for i in sorting_inds]
         edges = [edges[i] for i in sorting_inds]
-        edges_directed = [self.edge_direction(edges[i]) for i in range(len(edges))]
+        edges_directed = [self.edge_direction(edges[i])[::-1] for i in range(len(edges))]
         correct_order = [edges_directed[i] == edges[i] for i in range(len(edges))]
         
         ip = i//2
