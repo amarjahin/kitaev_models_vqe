@@ -1,7 +1,7 @@
 import os
 os.environ['MPMATH_NOSAGE'] = 'true'
 
-from numpy import conjugate
+from numpy import conjugate, exp
 from numpy.linalg import norm
 from qiskit import QuantumCircuit, transpile
 from qiskit.providers.aer import QasmSimulator, StatevectorSimulator
@@ -15,9 +15,10 @@ def phys_energy_ev(hamiltonian,simulator, qc_c, params, projector):
         result = simulator.run(qc_c).result()
         state_vec = result.get_statevector()
         phys_state_vec = projector @ state_vec
-        phys_state_vec = phys_state_vec/norm(phys_state_vec)
+        phys_prop = norm(phys_state_vec)
+        phys_state_vec = phys_state_vec/phys_prop
         phys_energy_ev = (conjugate(phys_state_vec.T) @ hamiltonian @ phys_state_vec).real
-        return phys_energy_ev
+        return phys_energy_ev # + exp(-1/(1.05-phys_prop))
     elif isinstance(simulator, QasmSimulator): 
         psi = CircuitStateFn(qc_c)
         QI = QuantumInstance(simulator, shots=10000)
