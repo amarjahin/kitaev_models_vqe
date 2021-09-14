@@ -1,4 +1,4 @@
-test_gauges.py
+test_projection.py
 __pycache__/
 plots/
 vqe_results/
@@ -10,3 +10,4 @@ fgcost.py
 vqe_w_save.py
 time_diagnosis/pennylane_v_qiskit.py
 time_diagnosis/cirq_v_qiskit.py
+paper_plots/
