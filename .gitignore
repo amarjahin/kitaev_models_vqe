@@ -11,3 +11,4 @@ vqe_w_save.py
 time_diagnosis/pennylane_v_qiskit.py
 time_diagnosis/cirq_v_qiskit.py
 paper_plots/
+segfault_test.py
