@@ -24,7 +24,7 @@ J = (1,1, 1) # pure Kitaev terms
 # lattice_type = 'square_octagon_torus'
 # J = (1, 1, 2**(0.5)) # pure Kitaev terms 
 
-k_array = linspace(0, 0.1, num=9)[1::]
+k_array = linspace(0, 0.1, num=9)
 exact_energy_array = zeros_like(k_array)
 optimal_energy_array = zeros_like(k_array)
 state_overlap_array = zeros_like(k_array)
@@ -59,7 +59,6 @@ for i in range(len(k_array)):
 
     #######################################################################
     simulator = StatevectorSimulator()
-
     method = 'BFGS'
 
     qc = QuantumCircuit(m_u)
@@ -70,7 +69,7 @@ for i in range(len(k_array)):
     print(f'the initial energy: {cost([])}')
     #########################################################################
 
-    ansatz_terms_dict = {'a': GBSU(num_qubits=m_u, active_qubits=active_qubits, det=1, steps=1,param_name='a'),
+    ansatz_terms_dict = {'a': GBSU(num_qubits=m_u, active_qubits=active_qubits, det=-1, steps=1,param_name='a'),
                         'b' : PFDU(num_qubits=m_u, fermion_qubits=active_qubits, steps=1, param_name='b'), 
                         }
 
@@ -114,12 +113,19 @@ for i in range(len(k_array)):
         prob = abs(conjugate(op_state.T) @ fermion_result.eigenstates[0].to_matrix())**2 
         overlap_subspace = overlap_subspace + prob
         # print(i)
-                
-        print(f"1 - |<exact|optimal>|^2 : {1 - overlap_subspace}")
 
-        
+
+        print(f"1 - |<exact|optimal>|^2 : {1 - overlap_subspace}")
+        state_overlap_array[i] = 1 - overlap_subspace
+
+
     exact_energy_array[i] = fermion_result.eigenvalues[0].real
     optimal_energy_array[i] = optimal_energy
-    state_overlap_array[i] = 1 - overlap_subspace
     nfev_array[i] = nfev
     nit_array[i] = nit
+
+savetxt('./result/exact_energy.out', exact_energy_array)
+savetxt('./result/optimal_energy.out', optimal_energy_array)
+savetxt('./result/overlap.out', state_overlap_array)
+savetxt('./result/nfev.out', nfev_array)
+savetxt('./result/nit.out', nit_array)
