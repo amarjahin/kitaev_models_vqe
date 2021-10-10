@@ -85,7 +85,7 @@ for i in range(len(k_array)):
         params0 = list(zeros(qc.num_parameters))
         params0[0:len(op_params)] = op_params
         print('optimizer is now running...')
-        result = minimize(fun=cost, x0=params0,  method=method, tol=0.00001, options={'maxiter':None}) # run optimizer
+        result = minimize(fun=cost, x0=params0,  method=method, tol=0.0001, options={'maxiter':None}) # run optimizer
         print(f"optimization success:{result['success']}")
         op_params = list(result['x']) # get optimal params 
         optimal_energy = result['fun']
@@ -94,7 +94,7 @@ for i in range(len(k_array)):
         nit = nit + result['nit']
         nfev = nfev + result['nfev']
 
-    print(f"optimal - exact / gap: {(optimal_energy - fermion_result.eigenvalues[0].real) / energy_gap }")
+    print(f"optimal - exact / gap: {(optimal_energy - fermion_result.eigenvalues[0].real) / energy_gap :.15f}")
 
     print('num of iterations: ', nit)
     print('num of evaluations: ', nfev)
@@ -115,7 +115,7 @@ for i in range(len(k_array)):
         # print(i)
 
 
-        print(f"1 - |<exact|optimal>|^2 : {1 - overlap_subspace}")
+        print(f"1 - |<exact|optimal>|^2 : {1 - overlap_subspace:.15f}")
         state_overlap_array[i] = 1 - overlap_subspace
 
 
